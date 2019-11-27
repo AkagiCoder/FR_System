@@ -1,8 +1,9 @@
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
 import time                     # Delay
+import serial                   # UART
 from datetime import date       # Date and time
-
+from picamera import PiCamera   # Raspberry Pi Camera
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
 # False: Program ends
@@ -13,6 +14,37 @@ lockStatus = "LOCKED"
 lock = False
 activeKeys = 0
 keypadInput = ""
+# Delay required to let enough time for the voltage
+# to drop for each output column.
+keyDelay = 0.001
+
+
+
+serialport = serial.Serial(
+port = "/dev/serial0",
+baudrate = 9600,
+parity = serial.PARITY_NONE,
+stopbits = serial.STOPBITS_ONE,
+bytesize = serial.EIGHTBITS,
+timeout = 1)
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+# Columns as output to the keypad
+GPIO.setup(26, GPIO.OUT)       # C3
+GPIO.setup(13, GPIO.OUT)       # C2
+GPIO.setup(6, GPIO.OUT)        # C1
+GPIO.output(26, False)
+GPIO.output(13, False)
+GPIO.output(6, False)
+
+# Rows as input from the keypad
+GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
+GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
+GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
+GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
+
+
 
 #----------------
 # Layer #1
@@ -37,6 +69,8 @@ def mainMenu():
         print("\t2. List of active key(s)")
         print("\t3. Key usage history")
         print("\t4. Remove a key")
+        print("\t5. Lock/unlock door")
+        print("\t6. Key Inputs")
         print("\n\tEnter 'exit' to terminate the program")
         command = input(">> ")
         mainCommands(command)
@@ -56,7 +90,9 @@ def mainCommands(command):
     elif(command == "4"):
         keyRemove()
     elif(command == "5"):
-        doorLock()
+        lockCont()
+    elif(command == "6"):
+        displayKeypad()
     elif(command == "exit"):
         SYSTEM_RUNNING = False
         print ("SYSTEM SHUTTING DOWN...\n")
@@ -68,33 +104,13 @@ def mainCommands(command):
 def keypad():
     global SYSTEM_RUNNING
     global keypadInput
-    
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BCM)
-    # Columns as output to the keypad
-    GPIO.setup(26, GPIO.OUT)       # C3
-    GPIO.setup(13, GPIO.OUT)       # C2
-    GPIO.setup(6, GPIO.OUT)        # C1
-    GPIO.output(26, False)
-    GPIO.output(13, False)
-    GPIO.output(6, False)
-    
-    # Rows as input from the keypad
-    GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
-    GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
-    GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
-    GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
-    
-    # Delay required to let enough time for the voltage
-    # to drop for each output column.
-    delay = 0.001
+    global keyDelay
 
     while SYSTEM_RUNNING:
         # Column 1
         GPIO.output(6, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "1"
-            print("Keypad Inputs: ", keypadInput)
             while(GPIO.input(17)):
                 pass
         elif(GPIO.input(27)):
@@ -110,7 +126,7 @@ def keypad():
             while(GPIO.input(5)):
                 pass
         GPIO.output(6, False)
-        time.sleep(delay)
+        time.sleep(keyDelay)
     
         # Column 2
         GPIO.output(13, True)
@@ -131,7 +147,7 @@ def keypad():
             while(GPIO.input(5)):
                 pass
         GPIO.output(13, False)
-        time.sleep(delay)
+        time.sleep(keyDelay)
 
         # Column 3
         GPIO.output(26, True)
@@ -152,7 +168,7 @@ def keypad():
             while(GPIO.input(5)):
                 pass
         GPIO.output(26, False)
-        time.sleep(delay)
+        time.sleep(keyDelay)
         
         # Check if the user inputted 5 digit passcode
         if(len(keypadInput) >= 5):
@@ -167,17 +183,15 @@ def keypad():
 # Thread for the Pi Camera
 def camera():
     global SYSTEM_RUNNING
+    global takePicture
+    
+    camera = PiCamera()
+    #camera.capture("/home/pi/Desktop/FR_System/Face.jpg")
+    camera.start_preview(fullscreen= False, window = (100, 20, 640, 480))
     while SYSTEM_RUNNING:
         pass
+    camera.stop_preview()
     print("Camera thread terminated")
-    return
-
-# Thread to control the lock
-def doorLock():
-    global SYSTEM_RUNNING
-    while SYSTEM_RUNNING:
-        pass
-    print("Door lock thread terminated")
     return
 
 #----------------
@@ -220,3 +234,25 @@ def keyRemove():
     time.sleep(1)
     return
 
+def lockCont():
+    global lock
+    global lockStatus
+    global serialport
+
+    if lock:
+        serialport.write(str.encode("2"))
+        lock = False
+        lockStatus = "UNLOCKED"
+    else:
+        serialport.write(str.encode("1"))
+        lock = True
+        lockStatus = "LOCKED"
+        
+def displayKeypad():
+    global keypadInput
+    count = 0
+    
+    while count < 5:
+        print("Current Inputs: ", keypadInput)
+        time.sleep(1)
+        count += 1
