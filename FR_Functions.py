@@ -3,23 +3,14 @@ import random                   # Key generator
 import time                     # Delay
 import serial                   # UART
 from datetime import datetime   # Date and time
+from datetime import timedelta  # Perform arithmetic on dates/times
 from picamera import PiCamera   # Raspberry Pi Camera
+
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
 # False: Program ends
 SYSTEM_RUNNING = True
-
-#----------------
-# User defined objects
-#----------------
-
-#class key:
-#    def __init__(self, num, code, dateCreate, timeCreate):
-#        self.num = num                     # Key's number indicating the position of the list
-#        self.code = code                   # Key's code
-#        self.dateCreate = dateCreate       # Date when the key was generated
-#        self.timeCreate = timeCreate       # Time when the key was generated
-        
+   
 #----------------
 # Global Variables
 #----------------
@@ -46,9 +37,16 @@ stopbits = serial.STOPBITS_ONE,
 bytesize = serial.EIGHTBITS,
 timeout = 1)
 
+# Serial communication constants and commands
+STX = b'\x02'           # Start of text
+ETX = b'\x03'           # End of text
+CW = "RCW\0"            # Rotate motor clockwise
+CCW = "RCCW\0"          # Rotate motor counter-clockwise
+
 # GPIOs
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
+
 # Columns as output to the keypad
 GPIO.setup(26, GPIO.OUT)       # C3
 GPIO.setup(13, GPIO.OUT)       # C2
@@ -62,8 +60,6 @@ GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
-
-
 
 #----------------
 # Layer #1
@@ -94,6 +90,7 @@ def mainMenu():
         print("\t3. Remove a key")
         print("\t4. Lock/unlock door")
         print("\t5. DELETE ALL ACTIVE KEYS")
+        print("\t6. ATmega Settings")
         print("\n\tEnter 'exit' to terminate the program")
         command = input(">> ")
         mainCommands(command)
@@ -115,7 +112,7 @@ def mainCommands(command):
     elif(command == "5"):
         deleteAllKeys()
     elif(command == "6"):
-        refresh()
+        ATmegaSettings()
     elif(command == "exit"):
         SYSTEM_RUNNING = False
         print ("SYSTEM SHUTTING DOWN...\n")
@@ -260,10 +257,17 @@ def keyGen():
         # Key is generated in this loop
         for i in range(0, 5):
             key += str(random.randrange(0, 9, 1))
+            
+        # Prompt the user the expected expiration date
+        print("What is the life expectancy of this key?")
+        input("Enter number of days between 1-30: ")
+            
         print("Key Generated: ", key)
         # Stamp the generated date and time
         today = datetime.now()
-        print("Date Generated: ", today, "\n")
+        expiration = today + timedelta(2)
+        print("Date Generated: ", today)
+        print("Expiration Date: ", expiration, "\n")
         KF.write(str(activeKeys + 1) + ".\t" +
              key + "\t" +
              today.strftime("%m/%d/%y\t%I:%M %p") + "\n")
@@ -278,8 +282,6 @@ def keyGen():
 
 # Shows the history of key usage
 def keyHist():
-
-
     KH = open("keyHistory.dat", "r")
     while(True):
         print("\033[2J\033[H")
@@ -304,7 +306,7 @@ def keyHist():
             #print("Key\tDate\t\tTime")
             #print(usage)
 
-# Select and remove an active key
+# Select to remove an active key
 def keyRemove():
     global activeKeys
     
@@ -324,8 +326,10 @@ def keyRemove():
     keyList = KF.readlines()
     print(keys)
     
-    keyNum = int(input("Which key is to be removed[No.]: "))
-    if keyNum > activeKeys or keyNum < 1:
+    keyNum = input("Which key is to be removed[No.] or type 'exit' to exit: ")
+    if keyNum == "exit":
+        return
+    if int(keyNum) > activeKeys or int(keyNum) < 1:
         print("Invalid [No.]!")
         time.sleep(2)
         return
@@ -365,3 +369,25 @@ def deleteAllKeys():
     KF.close()
     activeKeys = 0
     
+def ATmegaSettings():
+    while True:
+        print("\033[2J\033[H")
+        print("ATmega328 Settings\n")
+        print("\t1. Rotate motor CW")
+        print("\t2. Rotate motor CCW")
+        print("Type 'exit' to exit")
+        command = input("\nSelect an option: ")
+        
+        # Rotate motor CW
+        if (command == "1"):
+            serialport.write(STX)
+            serialport.write(str.encode(CW))
+            serialport.write(ETX)
+        # Rotate motor CCW
+        elif (command == "2"):
+            serialport.write(STX)
+            serialport.write(str.encode(CCW))
+            serialport.write(ETX)
+        elif(command == "exit"):
+            return
+        
