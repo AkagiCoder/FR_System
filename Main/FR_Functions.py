@@ -1,3 +1,15 @@
+# To do list:
+# 1. Set up an key expiration check
+#    a) Need to set up special case of key expiration (courier vs. user)
+#    b) A thread that automatically clears up expired keys
+# 2. Read from the ATmega's accelerometer
+#    a) Settings to read accelerometer
+#    b) Thread that constantly check the RXD port
+#    c) 
+# 3. Adjust sensitivity of the accelerometer
+# 4. Warn officials of possible break in
+# 5. Camera to take photo when a button is pressed
+
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
 import time                     # Delay
@@ -5,6 +17,7 @@ import serial                   # UART
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from picamera import PiCamera   # Raspberry Pi Camera
+from threading import Lock
 
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
@@ -14,11 +27,12 @@ SYSTEM_RUNNING = True
 #----------------
 # Global Variables
 #----------------
-
 lockStatus = "LOCKED"
 lock = False
-activeKeys = 0
-keypadInput = ""
+activeKeys = 0        # Total number of active keys (Max = 10)
+keypadInput = ""      # Variable to store the inputs from keypad
+file_Lock = Lock()    # Mutex for accessing the key file
+UART_Lock = Lock()    # Mutex for accessing the UART 
 
 # Delay required to let enough time for the voltage
 # to drop for each output column.
@@ -37,7 +51,9 @@ stopbits = serial.STOPBITS_ONE,
 bytesize = serial.EIGHTBITS,
 timeout = 1)
 
-# Serial communication constants and commands
+# Serial communication commands
+# Message format:
+# STX + Command + ETX
 STX = b'\x02'           # Start of text
 ETX = b'\x03'           # End of text
 CW = "RCW\0"            # Rotate motor clockwise
@@ -80,7 +96,7 @@ def mainMenu():
         print("Door: ", lockStatus)
         print("Active Keys: ", activeKeys, "\n")
         print("List of Active Key(s)")
-        print("No.\tKey\tDate\t\tTime")
+        print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
         KF = open("keyList.dat", "r")
         keys = KF.read()
         print(keys)
@@ -94,7 +110,7 @@ def mainMenu():
         print("\n\tEnter 'exit' to terminate the program")
         command = input(">> ")
         mainCommands(command)
-    print("Main menu thread terminated")
+    print("Main menu thread has terminated")
     return
 
 # Reads command from main menu
@@ -239,6 +255,30 @@ def camera():
     print("Camera thread terminated")
     return
 
+# Thread that automatically deletes expired keys
+def expKeyChecker():
+    global SYSTEM_RUNNING
+    global file_Lock
+    
+    while SYSTEM_RUNNING:
+        time.sleep(1)
+        file_Lock.acquire()     # Acquire lock to key file
+        file_Lock.release()     # Release lock to the key file
+    
+    print("Expired key checker thread has terminated")
+
+# Thread that monitors the MPU6050 (Accelerometer)
+def accelMonitor():
+    global SYSTEM_RUNNING
+    global UART_Lock
+    
+    while SYSTEM_RUNNING:
+        UART_Lock.acquire()    # Acquire lock to the UART
+        time.sleep(1)
+        UART_Lock.release()    # Release lock to the UART
+        
+    print("Accelerometer monitor thread has terminated")
+
 #----------------
 # LAYER #2
 #----------------
@@ -247,32 +287,76 @@ def refresh():
     return
 
 # Generate a 5-digit key
+# TO DO:
+# a) Needs to check if the newly generated key already exist in the list.
+# c) Create a custom master key with user permission to login.
 def keyGen():
     global activeKeys
+    global file_Lock
+    
     if activeKeys < 10:
         print("\033[2J\033[H")
         print("Generating key...")
-        KF = open("keyList.dat", "a")
         key = ""
         # Key is generated in this loop
         for i in range(0, 5):
             key += str(random.randrange(0, 9, 1))
             
-        # Prompt the user the expected expiration date
+        # Prompt the user for the expiration date
         print("What is the life expectancy of this key?")
-        input("Enter number of days between 1-30: ")
-            
+        while True:        
+            numDays = input("Enter number of days between 1-30: ")
+            try:
+                days = int(numDays)
+                if days > 30 or days < 1:
+                    print("Life expectancy must be between 1-30 days!\nTry again")
+                else:
+                    break
+            except ValueError:
+                print("Invalid input for the number of days!\nTry again")
+        
+        # Prompt the user for the expiration time on that day
+        while True:
+            inputTime = input("Enter the time of day [1-12] (Rounded to the nearest hour): ")
+            try:
+                time = int(inputTime)
+                if time < 1 or time > 12:
+                    print("Time of the day must be between 1-12 o' clock!\nTry again")
+                else:
+                    # Format the time string
+                    if time < 10:
+                        inputTime = "0" + inputTime + ":00"
+                    else:
+                        inputTime = inputTime + ":00"
+                    break
+            except ValueError:
+                print("Invalid input for the time of the day!\nTry again")
+        
+        # Prompt the user for the period of that expiration time
+        while True:
+            period = input("Enter the period [AM/PM] of that expiration time: ")
+            if period != "AM" and period != "PM":
+                print("Invalid input for the period of the day!\nTry again")
+            else:
+                break
+
         print("Key Generated: ", key)
-        # Stamp the generated date and time
+        
+        # Stamp the creation and expiration time of the key in the key file
         today = datetime.now()
-        expiration = today + timedelta(2)
-        print("Date Generated: ", today)
-        print("Expiration Date: ", expiration, "\n")
-        KF.write(str(activeKeys + 1) + ".\t" +
-             key + "\t" +
-             today.strftime("%m/%d/%y\t%I:%M %p") + "\n")
+        expiration = today + timedelta(days)
+        
+        file_Lock.acquire()   # Acquire lock to the key file
+        KF = open("keyList.dat", "a")
+        KF.write(str(activeKeys + 1) + ".\t" +                          # Key No.
+             key + "\t" +                                               # Key
+             today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
+             + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
+             + inputTime + " " + period + "\n")
+        
         activeKeys = activeKeys + 1
         KF.close()
+        file_Lock.release()   # Releaes lock to the key file
         input("Press ENTER to continue")
     # Key limit reached
     else:
@@ -319,7 +403,7 @@ def keyRemove():
     # Display the active keys
     print("\033[2J\033[H")
     print("List of Active Key(s)")
-    print("No.\tKey\tDate\t\tTime")
+    print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
     KF = open("keyList.dat", "r")
     keys = KF.read()
     KF.seek(0, 0)
@@ -341,35 +425,67 @@ def keyRemove():
         keyInfo = keyList[i].split();
         if (str(keyNum)+".") != keyInfo[0]:
             count += 1
-            KF.write(str(count) + ".\t" +
-                     keyInfo[1] + "\t" +
-                     keyInfo[2] + "\t" +
-                     keyInfo[3] + " " + keyInfo[4] + "\n")
+            KF.write(str(count) + ".\t" +                    # Key No.
+                     keyInfo[1] + "\t" +                     # Key
+                     keyInfo[2] + " " + keyInfo[3] + " " + keyInfo[4] + "\t" +
+                     keyInfo[5] + " " + keyInfo[6] + " " + keyInfo[7] + "\n")                     # Creation Date & TIme
     activeKeys -= 1
     KF.close()
     return
 
-def lockCont():
-    global lock
-    global lockStatus
-    global serialport
+# This piece of code is to soon be removed and replaced
+#def lockCont():
+#    global lock
+#    global lockStatus
+#    global serialport
 
-    if lock:
-        serialport.write(str.encode("2"))
-        lock = False
-        lockStatus = "UNLOCKED"
-    else:
-        serialport.write(str.encode("1"))
-        lock = True
-        lockStatus = "LOCKED"
-        
+#    if lock:
+#        serialport.write(str.encode("2"))
+#        lock = False
+#        lockStatus = "UNLOCKED"
+#    else:
+#        serialport.write(str.encode("1"))
+#        lock = True
+#        lockStatus = "LOCKED"
+
+# Completely clear out all known keys
 def deleteAllKeys():
     global activeKeys
-    KF = open("keyList.dat", "w")
-    KF.close()
-    activeKeys = 0
     
+    # Get confirmation from the user
+    while True:
+        action = input("Are you sure if you want to clear out the keys (y/n): ")
+        if (action == "y"):
+            KF = open("keyList.dat", "w")
+            KF.close()
+            activeKeys = 0
+            print("Entire key list will be cleared")
+            time.sleep(3)
+            return
+        elif (action == "n"):
+            print("Action has been cancelled")
+            time.sleep(3)
+            return
+        else:
+            print("Invalid input, please enter 'y' for yes or 'n' for no...")
+            time.sleep(3)
+    
+# Controls the ATmega board using UART.
+# The commands are listed near the top of this code
 def ATmegaSettings():
+    global serialport
+    global UART_Lock
+    
+    # Variables that represent the command to be sent
+    global STX
+    global ETX
+    global CW
+    global CCW
+    
+    # Status variables of the lock
+    global lock
+    global lockStatus
+    
     while True:
         print("\033[2J\033[H")
         print("ATmega328 Settings\n")
@@ -380,14 +496,18 @@ def ATmegaSettings():
         
         # Rotate motor CW
         if (command == "1"):
+            UART_Lock.acquire()
             serialport.write(STX)
             serialport.write(str.encode(CW))
             serialport.write(ETX)
+            UART_Lock.release()
         # Rotate motor CCW
         elif (command == "2"):
+            UART_Lock.acquire()
             serialport.write(STX)
             serialport.write(str.encode(CCW))
             serialport.write(ETX)
+            UART_Lock.release()
         elif(command == "exit"):
             return
         
