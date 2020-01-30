@@ -1,7 +1,6 @@
 # To do list:
 # 1. Set up an key expiration check
 #    a) Need to set up special case of key expiration (courier vs. user)
-#    b) A thread that automatically clears up expired keys
 # 2. Read from the ATmega's accelerometer
 #    a) Settings to read accelerometer
 #    b) Thread that constantly check the RXD port
@@ -31,10 +30,10 @@ lockStatus = "LOCKED"
 lock = False
 activeKeys = 0        # Total number of active keys (Max = 10)
 keypadInput = ""      # Variable to store the inputs from keypad
-file_Lock = Lock()    # Mutex for accessing the key file
+keyFile_Lock = Lock() # Mutex for accessing the key file
 UART_Lock = Lock()    # Mutex for accessing the UART 
 
-# Delay required to let enough time for the voltage
+# Delay required to give enough time for the voltage
 # to drop for each output column.
 keyDelay = 0.001
 
@@ -122,7 +121,7 @@ def mainCommands(command):
     elif(command == "2"):
         keyHist()
     elif(command == "3"):
-        keyRemove()
+        selectKeyRemoval()
     elif(command == "4"):
         lockCont()
     elif(command == "5"):
@@ -212,6 +211,7 @@ def keypad():
         # Check if the user inputted 5 digit passcode
         if(len(keypadInput) >= 5):
             print("Keypad Inputs: ", keypadInput)
+            keyFile_Lock.acquire()
             KF = open("keyList.dat", "r")
             keyList = KF.readlines()
             validCode = False
@@ -231,6 +231,7 @@ def keypad():
             else:
                 print("Invalid key code")
             KF.close()
+            keyFile_Lock.release()
             keypadInput = ""  # Reset buffer
             print("Wait for 5 seconds to input again")
             time.sleep(5)     # Add 5 second delay to prevent spamming
@@ -258,13 +259,38 @@ def camera():
 # Thread that automatically deletes expired keys
 def expKeyChecker():
     global SYSTEM_RUNNING
-    global file_Lock
+    global keyFile_Lock
+    global activeKeys
     
     while SYSTEM_RUNNING:
-        time.sleep(1)
-        file_Lock.acquire()     # Acquire lock to key file
-        file_Lock.release()     # Release lock to the key file
-    
+        time.sleep(10)
+        
+        # Keeps track of a list of expired keys to be removed
+        expKeyList = []        
+        # Today's date is the reference point
+        today = datetime.now()
+        
+        keyFile_Lock.acquire()           # Acquire lock to key file
+        KF = open("keyList.dat", "r")    # Open the key list file
+        keyList = KF.readlines()
+        expKeyCount = 0                  # Number of expired keys detected
+        # Check through the key file for expired dates and time
+        for i in range(0, activeKeys):
+            keyInfo = keyList[i].split()            
+            expDate = datetime(int(keyInfo[5][6:]) + 2000, int(keyInfo[5][:-6]), int(keyInfo[5][3:-3]))
+            # Compute the period offset
+            if keyInfo[7] == "PM":
+                expTime = int(keyInfo[6][:-3]) + 12
+            else:
+                expTime = int(keyInfo[6][:-3])
+                
+            if expDate <= today and expTime <= today.hour:
+                expKeyList.append(keyInfo[0])  # Store expired key's number
+                expKeyCount += 1               # Increment the count                
+        KF.close()
+        keyFile_Lock.release()           # Release lock to the key file
+        for i in range(0, expKeyCount):        
+            removeKey(expKeyList[i])
     print("Expired key checker thread has terminated")
 
 # Thread that monitors the MPU6050 (Accelerometer)
@@ -283,6 +309,30 @@ def accelMonitor():
 # LAYER #2
 #----------------
 
+# Removes a key once user specifies the number '1.', '2.', etc.
+def removeKey(keyNum):
+    global activeKeys
+    global keyFile_Lock
+    
+    keyFile_Lock.acquire()
+    KF = open("keyList.dat", "r")
+    keyList = KF.readlines()
+    KF.close()
+    KF = open("keyList.dat", "w")
+    count = 0
+    for i in range(0, activeKeys):
+        keyInfo = keyList[i].split();
+        if (str(keyNum)) != keyInfo[0]:
+            count += 1
+            KF.write(str(count) + ".\t" +                                        # Key No.
+                     keyInfo[1] + "\t" +                                         # Key
+                     keyInfo[2] + " " + keyInfo[3] + " " + keyInfo[4] + "\t" +   # Creation Date & Time
+                     keyInfo[5] + " " + keyInfo[6] + " " + keyInfo[7] + "\n")    # Expiration Date & Time
+    activeKeys -= 1
+    KF.close()
+    keyFile_Lock.release()
+    return    
+
 def refresh():
     return
 
@@ -292,7 +342,7 @@ def refresh():
 # c) Create a custom master key with user permission to login.
 def keyGen():
     global activeKeys
-    global file_Lock
+    global keyFile_Lock
     
     if activeKeys < 10:
         print("\033[2J\033[H")
@@ -305,11 +355,11 @@ def keyGen():
         # Prompt the user for the expiration date
         print("What is the life expectancy of this key?")
         while True:        
-            numDays = input("Enter number of days between 1-30: ")
+            numDays = input("Enter number of days between 0-30: ")
             try:
                 days = int(numDays)
-                if days > 30 or days < 1:
-                    print("Life expectancy must be between 1-30 days!\nTry again")
+                if days > 30 or days < 0:
+                    print("Life expectancy must be between 0-30 days!\nTry again")
                 else:
                     break
             except ValueError:
@@ -346,7 +396,7 @@ def keyGen():
         today = datetime.now()
         expiration = today + timedelta(days)
         
-        file_Lock.acquire()   # Acquire lock to the key file
+        keyFile_Lock.acquire()   # Acquire lock to the key file
         KF = open("keyList.dat", "a")
         KF.write(str(activeKeys + 1) + ".\t" +                          # Key No.
              key + "\t" +                                               # Key
@@ -356,7 +406,7 @@ def keyGen():
         
         activeKeys = activeKeys + 1
         KF.close()
-        file_Lock.release()   # Releaes lock to the key file
+        keyFile_Lock.release()   # Releaes lock to the key file
         input("Press ENTER to continue")
     # Key limit reached
     else:
@@ -391,9 +441,8 @@ def keyHist():
             #print(usage)
 
 # Select to remove an active key
-def keyRemove():
-    global activeKeys
-    
+def selectKeyRemoval():
+    global keyFile_Lock
     # Exit this option if the list is empty
     if activeKeys < 1:
         print("Key list is empty!")
@@ -404,6 +453,7 @@ def keyRemove():
     print("\033[2J\033[H")
     print("List of Active Key(s)")
     print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
+    keyFile_Lock.acquire()
     KF = open("keyList.dat", "r")
     keys = KF.read()
     KF.seek(0, 0)
@@ -418,19 +468,10 @@ def keyRemove():
         time.sleep(2)
         return
     KF.close()
+    keyFile_Lock.release()
     
-    KF = open("keyList.dat", "w")
-    count = 0
-    for i in range(0, activeKeys):
-        keyInfo = keyList[i].split();
-        if (str(keyNum)+".") != keyInfo[0]:
-            count += 1
-            KF.write(str(count) + ".\t" +                    # Key No.
-                     keyInfo[1] + "\t" +                     # Key
-                     keyInfo[2] + " " + keyInfo[3] + " " + keyInfo[4] + "\t" +
-                     keyInfo[5] + " " + keyInfo[6] + " " + keyInfo[7] + "\n")                     # Creation Date & TIme
-    activeKeys -= 1
-    KF.close()
+    # Call the function to remove that key
+    removeKey(keyNum + ".")
     return
 
 # This piece of code is to soon be removed and replaced
