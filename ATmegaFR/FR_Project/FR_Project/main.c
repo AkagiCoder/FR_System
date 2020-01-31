@@ -43,20 +43,13 @@ int main(void)
 	commPos = 0;
 	i2c_init();				// Initialize I2C module
 	USART_Init(MYUBRR);		// Initialize USART module
-	//MPU_init();				// Wake up MPU6050
+	MPU_init();				// Wake up MPU6050
 	motorPortInit();		// Initialize PD2-PD5 for stepper motor
 
 	sei();
 
 	while(1)
 	{
-		//_delay_ms(5000);
-		//rotateMotor(CW, 50);
-		//_delay_ms(5000);
-		//rotateMotor(CCW, 50);
-		//readAccel();
-		//USART_Print("Hello");
-		//USART_Print("\0");
 	}
 }
 
@@ -94,19 +87,6 @@ ISR(USART_RX_vect)
 				commPos = -1;
 				USART_Print("ERROR: Buffer overflow\n\r");
 			}
-		
-		/*
-		// Lock the door
-		case 49:
-			rotateMotor(CW, 50);
-			USART_Print("LOCKING\n\r");
-			break;
-		// Unlock the door
-		case 50:
-			rotateMotor(CCW, 50);
-			USART_Print("UNLOCKING\n\r");
-			break;
-		*/
 	}
 }
 
