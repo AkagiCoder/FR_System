@@ -1,8 +1,6 @@
 main.py
-	1) Create a thread that periodically checks the key file for any expired keys
 	2) Create a thread that periodically checks the accelerometer
-	3) Set up mutex for R/W to the key file (avoids race condition on system resources)
 
 FR_Functions.py
 	1) Reorganize the options
-	2) 
+	2) Get the MPU6050 working
