@@ -55,8 +55,9 @@ timeout = 1)
 # STX + Command + ETX
 STX = b'\x02'           # Start of text
 ETX = b'\x03'           # End of text
-CW = "RCW\0"            # Rotate motor clockwise
-CCW = "RCCW\0"          # Rotate motor counter-clockwise
+CW = "RCW"              # Rotate motor clockwise
+CCW = "RCCW"            # Rotate motor counter-clockwise
+ACCX = "ACCEL_X"        # Acceleration on X-axis
 
 # GPIOs
 GPIO.setwarnings(False)
@@ -263,7 +264,7 @@ def expKeyChecker():
     global activeKeys
     
     while SYSTEM_RUNNING:
-        time.sleep(10)
+        time.sleep(1)
         
         # Keeps track of a list of expired keys to be removed
         expKeyList = []        
@@ -299,9 +300,9 @@ def accelMonitor():
     global UART_Lock
     
     while SYSTEM_RUNNING:
-        UART_Lock.acquire()    # Acquire lock to the UART
+        #UART_Lock.acquire()    # Acquire lock to the UART
         time.sleep(1)
-        UART_Lock.release()    # Release lock to the UART
+        #UART_Lock.release()    # Release lock to the UART
         
     print("Accelerometer monitor thread has terminated")
 
@@ -510,7 +511,22 @@ def deleteAllKeys():
         else:
             print("Invalid input, please enter 'y' for yes or 'n' for no...")
             time.sleep(3)
+
+# Sends the commmand using UART
+def UART_Send(command):
+    global UART_Lock
+    global serialport
     
+    # Signals to initiate/terminate the UART message
+    global STX
+    global ETX
+    
+    UART_Lock.acquire()
+    serialport.write(STX)
+    serialport.write(str.encode(command))
+    serialport.write(ETX)
+    UART_Lock.release()
+
 # Controls the ATmega board using UART.
 # The commands are listed near the top of this code
 def ATmegaSettings():
@@ -518,10 +534,9 @@ def ATmegaSettings():
     global UART_Lock
     
     # Variables that represent the command to be sent
-    global STX
-    global ETX
     global CW
     global CCW
+    global ACCX
     
     # Status variables of the lock
     global lock
@@ -532,23 +547,26 @@ def ATmegaSettings():
         print("ATmega328 Settings\n")
         print("\t1. Rotate motor CW")
         print("\t2. Rotate motor CCW")
-        print("Type 'exit' to exit")
+        print("\t3. Retrieve acceleration on X-axis")
+        print("\nType 'exit' to exit")
         command = input("\nSelect an option: ")
         
+        #UART_Send(ACCX)
+        #message = serialport.readline()
+        #print(message.decode("utf-8"))
+        #time.sleep(1)
         # Rotate motor CW
         if (command == "1"):
-            UART_Lock.acquire()
-            serialport.write(STX)
-            serialport.write(str.encode(CW))
-            serialport.write(ETX)
-            UART_Lock.release()
+            UART_Send(CW)
         # Rotate motor CCW
         elif (command == "2"):
-            UART_Lock.acquire()
-            serialport.write(STX)
-            serialport.write(str.encode(CCW))
-            serialport.write(ETX)
-            UART_Lock.release()
+            UART_Send(CCW)
+        # Request acceleration of X-axis
+        elif (command == "3"):
+            UART_Send(ACCX)
+            message = serialport.readline()
+            print(message.decode("utf-8"))
+            time.sleep(1)
         elif(command == "exit"):
             return
         
