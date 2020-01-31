@@ -27,10 +27,10 @@
 // Variables
 uint16_t accel[3];					// Acceleration values for all axes
 char buffer[10];
-uint8_t motorStep = 0;
+volatile uint8_t motorStep = 0;
 
 // Function Declarations
-void readAccel();
+//void readAccel();
 void motorPortInit();
 void rotateMotor(uint8_t dir, uint8_t step);
 
@@ -53,6 +53,7 @@ int main(void)
 	}
 }
 
+// Commands received from the UART are processed here
 ISR(USART_RX_vect)
 {
 	switch(UDR0)
@@ -67,14 +68,21 @@ ISR(USART_RX_vect)
 		case 3:
 			command[commPos] = UDR0;
 			command[commPos+1] = '\0';
-			//USART_Print(command);
-			//USART_Print("\n\rETX\n\r");
+			
+			// Rotate motor clockwise
 			if(strcmp("RCW", command) == 0)
 				rotateMotor(CW, 50);
-				//USART_Print("Rotate motor CW\n\r");
+			// Rotate motor counter-clockwise
 			else if(strcmp("RCCW", command) == 0)
 				rotateMotor(CCW, 50);
-				//USART_Print("Rotate motor CCW\n\r");
+			// Retrieve value from MPU accelerometer on the X-axis
+			else if(strcmp("ACCEL_X", command) == 0)
+			{
+				MPU_ReadAccel(accel);
+				itoa(accel[0], buffer, 10);
+				USART_Print(buffer);
+				USART_Print("\0");
+			}
 			break;
 			
 		default:
@@ -87,9 +95,10 @@ ISR(USART_RX_vect)
 				commPos = -1;
 				USART_Print("ERROR: Buffer overflow\n\r");
 			}
+			
 	}
 }
-
+/*
 // Read the MPU6050 acceleration and display to terminal
 void readAccel()
 {
@@ -108,7 +117,7 @@ void readAccel()
 		USART_Print(buffer);
 		USART_Print("\n\r");
 }
-
+*/
 // Initialize PB1-PD4
 void motorPortInit()
 {
