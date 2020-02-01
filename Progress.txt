@@ -1,6 +1,7 @@
 main.py
-	2) Create a thread that periodically checks the accelerometer
+	1) Create a thread that periodically checks the accelerometer
 
 FR_Functions.py
 	1) Reorganize the options
 	2) Get the MPU6050 working
+	3) Create a popup alarm of a break in
