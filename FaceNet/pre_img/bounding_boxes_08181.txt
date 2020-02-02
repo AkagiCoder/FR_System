@@ -1,0 +1,29 @@
+./pre_img\adrian_ruiz\00014.png 277 142 435 362
+./pre_img\adrian_ruiz\00015.png 295 149 465 378
+./pre_img\adrian_ruiz\00016.png 318 129 510 394
+./pre_img\adrian_ruiz\00017.png 328 124 524 390
+./pre_img\adrian_ruiz\00018.png 331 112 513 354
+./pre_img\adrian_ruiz\00019.png 317 141 526 412
+./pre_img\adrian_ruiz\00020.png 321 128 526 412
+./pre_img\adrian_ruiz\00021.png 315 122 492 359
+./pre_img\adrian_ruiz\00022.png 335 112 550 372
+./pre_img\adrian_ruiz\00023.png 337 129 552 415
+./pre_img\adrian_ruiz\00024.png 327 141 533 422
+./pre_img\adrian_ruiz\00025.png 307 151 508 412
+./pre_img\adrian_ruiz\00026.png 307 146 509 408
+./pre_img\adrian_ruiz\00027.png 340 127 516 352
+./pre_img\adrian_ruiz\00028.png 317 122 504 373
+./pre_img\adrian_ruiz\00029.png 312 131 520 409
+./pre_img\adrian_ruiz\00030.png 339 136 547 414
+./pre_img\adrian_ruiz\00031.png 330 128 523 376
+./pre_img\adrian_ruiz\00032.png 350 135 551 409
+./pre_img\adrian_ruiz\009.png
+./pre_img\adrian_ruiz\012.png
+./pre_img\adrian_ruiz\013.png
+./pre_img\adrian_ruiz\014.png
+./pre_img\adrian_ruiz\016.png
+./pre_img\adrian_ruiz\018.png
+./pre_img\adrian_ruiz\20191124_174428.png
+./pre_img\adrian_ruiz\20191124_174435.png
+./pre_img\adrian_ruiz\20191124_174439.png
+./pre_img\adrian_ruiz\20191124_174448.png

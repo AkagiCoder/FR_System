@@ -1,0 +1,16 @@
+./pre_img\adrian_ruiz\002.png 1809 262 2300 906
+./pre_img\adrian_ruiz\003.png 1492 365 1784 742
+./pre_img\adrian_ruiz\004.png 522 168 794 531
+./pre_img\adrian_ruiz\005.png 1644 1643 1995 2134
+./pre_img\adrian_ruiz\006.png 675 1443 1093 2002
+./pre_img\adrian_ruiz\008.png 209 86 364 288
+./pre_img\adrian_ruiz\009.png
+./pre_img\adrian_ruiz\010.png 923 978 1525 1682
+./pre_img\adrian_ruiz\011.png 584 843 1591 2069
+./pre_img\adrian_ruiz\012.png
+./pre_img\adrian_ruiz\013.png
+./pre_img\adrian_ruiz\014.png
+./pre_img\adrian_ruiz\015.png 462 617 1364 1843
+./pre_img\adrian_ruiz\016.png
+./pre_img\adrian_ruiz\017.png 191 219 1943 2250
+./pre_img\adrian_ruiz\018.png
