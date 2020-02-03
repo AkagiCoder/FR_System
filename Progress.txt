@@ -1,5 +1,6 @@
 main.py
 	1) Create a thread that periodically checks the accelerometer
+	2) Add YZ-axis to RPi
 
 FR_Functions.py
 	1) Reorganize the options
