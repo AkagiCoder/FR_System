@@ -2,12 +2,19 @@ import threading
 import FR_Functions as FR
 
 # Count the current active keys
-KF = open("keyList.dat", "r")
-EOF = KF.readline()
-while EOF:
-    FR.activeKeys += 1
+try:
+    KF = open("keyList.dat", "r")
     EOF = KF.readline()
-KF.close()
+    while EOF:
+        FR.activeKeys += 1
+        EOF = KF.readline()
+    KF.close()
+
+# If the keyList.dat file doesn't exist, create one
+except FileNotFoundError:
+    KF = open("keyList.dat", "w")
+    KF.close()
+    FR.activeKeys = 0
 
 # Main Thread
 # List of threads
@@ -30,4 +37,4 @@ t0.join()
 #t2.join()
 t3.join()
 t4.join()
-print("\nPROGRAM SUCCESSFULLY TERMINATED")
+print("===== PROGRAM SUCCESSFULLY TERMINATED =====")
