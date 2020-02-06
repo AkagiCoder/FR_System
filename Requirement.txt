@@ -17,8 +17,7 @@ main.py Package Installation Guide
 
 Tensorflow 2.0.0 Installation Guide
 Source: https://raspberrypi.stackexchange.com/questions/107483/error-installing-tensorflow-cannot-find-libhdfs-so
-1) Create a virtual environment and activate it
-2) Run the following commands:
+1) Run the following commands:
 
 sudo apt-get install -y libhdf5-dev libc-ares-dev libeigen3-dev
 python3 -m pip install keras_applications==1.0.8 --no-deps
@@ -30,11 +29,11 @@ python3 -m pip install -U six wheel mock
 
 These commands come from Tensorflow github: https://github.com/PINTO0309/Tensorflow-bin/#usage
 
-3) Next uninstall tensorflow and install it.
+2) Next uninstall tensorflow and install it.
 
 wget https://github.com/lhelontra/tensorflow-on-arm/releases/download/v2.0.0/tensorflow-2.0.0-cp37-none-linux_armv7l.whl
 python3 -m pip uninstall tensorflow
 python3 -m pip install tensorflow-2.0.0-cp37-none-linux_armv7l.whl
 
-4) Finally, restart your TERMINAL for changes to take into effect.
+3) Finally, restart your TERMINAL for changes to take into effect.
 
