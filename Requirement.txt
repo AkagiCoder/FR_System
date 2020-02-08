@@ -9,12 +9,27 @@ Before installing the packages, make sure to install virtualenv (pip3 install vi
 Creating an environment is done by:
 
 "python3 -m venv nameOfTheEnv"
+-------------------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------------------
+Modifying RPi's Serial Port
+To access the serial port, you need to configure the RPi's serial port through the terminal.
+1) Open up the terminal and type 'sudo raspi-config'
+2) Navigate to Interfacing Options > P6 Serial
+3) Disable the login shell to be accessible over serial
+4) Enable serial port hardware
+
+This should resolve any conflicts between Raspbian using the UART and the python program.
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
 main.py Package Installation Guide
 1) pip3 install RPi.GPIO
 2) pip3 install pyserial [Don't forget to activate the serial port by menu > Preferences > Raspberry Pi Configuration > Interfaces]
 3) pip3 install pycamera
+-------------------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------------------
 Tensorflow 2.0.0 Installation Guide
 Source: https://raspberrypi.stackexchange.com/questions/107483/error-installing-tensorflow-cannot-find-libhdfs-so
 1) Run the following commands:
@@ -36,4 +51,6 @@ python3 -m pip uninstall tensorflow
 python3 -m pip install tensorflow-2.0.0-cp37-none-linux_armv7l.whl
 
 3) Finally, restart your TERMINAL for changes to take into effect.
+-------------------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------------------
