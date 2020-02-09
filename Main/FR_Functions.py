@@ -58,6 +58,8 @@ ETX = b'\x03'           # End of text
 CW = "RCW"              # Rotate motor clockwise
 CCW = "RCCW"            # Rotate motor counter-clockwise
 ACCX = "ACCEL_X"        # Acceleration on X-axis
+ACCY = "ACCEL_Y"        # Acceleration on Y-axis
+ACCZ = "ACCEL_Z"        # Acceleration on Z-axis
 
 # GPIOs
 GPIO.setwarnings(False)
@@ -537,6 +539,8 @@ def ATmegaSettings():
     global CW
     global CCW
     global ACCX
+    global ACCY
+    global ACCZ
     
     # Status variables of the lock
     global lock
@@ -548,13 +552,11 @@ def ATmegaSettings():
         print("\t1. Rotate motor CW")
         print("\t2. Rotate motor CCW")
         print("\t3. Retrieve acceleration on X-axis")
+        print("\t4. Retrieve acceleration on Y-axis")
+        print("\t5. Retrieve acceleration on Z-axis")
         print("\nType 'exit' to exit")
         command = input("\nSelect an option: ")
-        
-        #UART_Send(ACCX)
-        #message = serialport.readline()
-        #print(message.decode("utf-8"))
-        #time.sleep(1)
+
         # Rotate motor CW
         if (command == "1"):
             UART_Send(CW)
@@ -564,6 +566,16 @@ def ATmegaSettings():
         # Request acceleration of X-axis
         elif (command == "3"):
             UART_Send(ACCX)
+            message = serialport.readline()
+            print(message.decode("utf-8"))
+            time.sleep(1)
+        elif (command == "4"):
+            UART_Send(ACCY)
+            message = serialport.readline()
+            print(message.decode("utf-8"))
+            time.sleep(1)
+        elif (command == "5"):
+            UART_Send(ACCZ)
             message = serialport.readline()
             print(message.decode("utf-8"))
             time.sleep(1)
