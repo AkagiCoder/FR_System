@@ -20,6 +20,11 @@
 #define RED		0x08
 #define BLU		0x10
 
+// Axis of MPU
+#define X_Axis	0x00
+#define Y_Axis	0x01
+#define Z_Axis	0x02
+
 // Rotation of Motor
 #define CW		0x00
 #define CCW		0x01
@@ -30,13 +35,13 @@ char buffer[10];
 volatile uint8_t motorStep = 0;
 
 // Function Declarations
-//void readAccel();
 void motorPortInit();
 void rotateMotor(uint8_t dir, uint8_t step);
+void MPU_UART(uint8_t axis);
 
 // Volatile Variables for RX UART interrupt
 volatile uint8_t commPos;			// Position of the array of characters [string]
-volatile char command[256];			// Commands received from RPi
+char command[256];			// Commands received from RPi
 
 int main(void)
 {	
@@ -54,17 +59,22 @@ int main(void)
 }
 
 // Commands received from the UART are processed here
+// [COMMANDS]	[Action]
+// RCW			Rotate motor clockwise
+// RCCW			Rotate motor counter-clockwise
+// ACCEL_X		Get the acceleration on the X-axis
+// ACCEL_Y		Get the acceleration on the Y-axis
+// ACCEL_Z		Get the acceleration on the Z-axis
 ISR(USART_RX_vect)
 {
 	switch(UDR0)
 	{
-		// Start of text
+		// Start of text (STX)
 		case 2:
-			//USART_Print("STX\n\r");
 			commPos = -1;
 			break;
 			
-		// End of text
+		// End of text (ETX)
 		case 3:
 			command[commPos] = UDR0;
 			command[commPos+1] = '\0';
@@ -77,12 +87,11 @@ ISR(USART_RX_vect)
 				rotateMotor(CCW, 50);
 			// Retrieve value from MPU accelerometer on the X-axis
 			else if(strcmp("ACCEL_X", command) == 0)
-			{
-				MPU_ReadAccel(accel);
-				itoa(accel[0], buffer, 10);
-				USART_Print(buffer);
-				USART_Print("\0");
-			}
+				MPU_UART(X_Axis);
+			else if(strcmp("ACCEL_Y", command) == 0)
+				MPU_UART(Y_Axis);
+			else if(strcmp("ACCEL_Z", command) == 0)
+				MPU_UART(Z_Axis);
 			break;
 			
 		default:
@@ -98,37 +107,18 @@ ISR(USART_RX_vect)
 			
 	}
 }
-/*
-// Read the MPU6050 acceleration and display to terminal
-void readAccel()
-{
-		MPU_ReadAccel(accel);
-		USART_Print("Accelerometer Values:\n\r");
-		itoa(accel[0], buffer, 10);
-		USART_Print("X: " );
-		USART_Print(buffer);
-		USART_Print("\n\r");
-		itoa(accel[1], buffer, 10);
-		USART_Print("Y: " );
-		USART_Print(buffer);
-		USART_Print("\n\r");
-		itoa(accel[2], buffer, 10);
-		USART_Print("Z: " );
-		USART_Print(buffer);
-		USART_Print("\n\r");
-}
-*/
+
 // Initialize PB1-PD4
 void motorPortInit()
 {
 	DDRB = (0x1E);
-	PORTB = 0;				// Output logic zero
+	PORTB = 0;				// Set PB output to zero
 }
 
-// Output the logic at PB1-PB4
+// Rotate the motor on PB1-PB4
+// Specify the direction and # of steps
 void rotateMotor(uint8_t dir, uint8_t step)
 {
-	//uint8_t motorStep = 0;
 	for(int i = 0; i <= step; i++)
 	{
 		// Rotate CW
@@ -162,7 +152,15 @@ void rotateMotor(uint8_t dir, uint8_t step)
 				PORTB = BLU | BLK;
 				break;
 		}
-		_delay_ms(10);
+		_delay_ms(10);	// Delay required for the motor to step through
 	}
 	PORTB = 0;		// Cut off PORTB
+}
+
+// Sends the read acceleration value of a particular axis through UART
+void MPU_UART(uint8_t axis)
+{
+	MPU_ReadAccel(accel);
+	itoa(accel[axis], buffer, 10);
+	USART_Print(buffer);
 }
