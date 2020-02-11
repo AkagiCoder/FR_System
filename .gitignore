@@ -1,4 +1,5 @@
 ~*
+/pkg
 Main/keyList.dat
 .DS_Store
 Main/__pycache__/
