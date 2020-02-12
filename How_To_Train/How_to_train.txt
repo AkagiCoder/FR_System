@@ -1,0 +1,13 @@
+1. Inside this folder are the programs needed to train the CNN. The folder should include cascades from openCV
+2. Inside folder with the programs, create two folder: train_img, and pre_img
+3. To make a dataset with a face, inside make a folder and label it the face's name
+	a. run the python script buildface.py
+		i. to run script: python3 buildface.py --output train_img/*faceid
+		ii. press k whenever the rectangle is around the person's face. Multiple angles of face are needed for 
+			better results
+4. Run python script data_preprocoess.py 
+	a. This crops the image to only the person's face
+5. Run script train_main.py 
+	a. a classifer and a cnn model are made. Numpy areas are made. 
+6. Transfer the following folders to the raspberry pi: 
+	train_img, classifer, model, npy, cascades
