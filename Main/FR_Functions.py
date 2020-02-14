@@ -9,14 +9,8 @@
 # 4. Warn officials of possible break in
 # 5. Camera to take photo when a button is pressed
 
-<<<<<<< HEAD
-
-import RPi.GPIO as GPIO         # GPIO for keypad
-import random                   # Key generator
-=======
 #import RPi.GPIO as GPIO         # GPIO for keypad
 #import random                   # Key generator
->>>>>>> 6cace2cbb864e580163f053ffcf113596be3d98c
 import time                     # Delay
 #import serial                   # UART
 #from datetime import datetime   # Date and time
@@ -336,6 +330,7 @@ def webcam():
 # FNet verifies the face
 def FNet():
     global SYSTEM_RUNNING
+    global frameFlag
 
     while SYSTEM_RUNNING:
         if frameFlag:
