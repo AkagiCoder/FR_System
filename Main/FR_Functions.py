@@ -4,26 +4,31 @@
 # 2. Read from the ATmega's accelerometer
 #    a) Settings to read accelerometer
 #    b) Thread that constantly check the RXD port
-#    c) 
+#    c)
 # 3. Adjust sensitivity of the accelerometer
 # 4. Warn officials of possible break in
 # 5. Camera to take photo when a button is pressed
 
+<<<<<<< HEAD
 
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
+=======
+#import RPi.GPIO as GPIO         # GPIO for keypad
+#import random                   # Key generator
+>>>>>>> 6cace2cbb864e580163f053ffcf113596be3d98c
 import time                     # Delay
-import serial                   # UART
-from datetime import datetime   # Date and time
-from datetime import timedelta  # Perform arithmetic on dates/times
-from picamera import PiCamera   # Raspberry Pi Camera
+#import serial                   # UART
+#from datetime import datetime   # Date and time
+#from datetime import timedelta  # Perform arithmetic on dates/times
+#from picamera import PiCamera   # Raspberry Pi Camera
 from threading import Lock
 
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
 # False: Program ends
 SYSTEM_RUNNING = True
-   
+
 #----------------
 # Global Variables
 #----------------
@@ -32,24 +37,32 @@ lock = False
 activeKeys = 0        # Total number of active keys (Max = 10)
 keypadInput = ""      # Variable to store the inputs from keypad
 keyFile_Lock = Lock() # Mutex for accessing the key file
-UART_Lock = Lock()    # Mutex for accessing the UART 
+UART_Lock = Lock()    # Mutex for accessing the UART
 
 # Delay required to give enough time for the voltage
 # to drop for each output column.
 keyDelay = 0.001
 
 #----------------
+# FNet and Webcam Variables
+#----------------
+# Variable for a frame
+# Flag variable to notify the FNet to check that frame
+frameFlag = False     # Flag to notify FNet that a frame needs to be checked
+
+
+#----------------
 # Initialization of RPi's hardware
 #----------------
 
 # Serial communication
-serialport = serial.Serial(
-port = "/dev/serial0",
-baudrate = 9600,
-parity = serial.PARITY_NONE,
-stopbits = serial.STOPBITS_ONE,
-bytesize = serial.EIGHTBITS,
-timeout = 1)
+#serialport = serial.Serial(
+#port = "/dev/serial0",
+#baudrate = 9600,
+#parity = serial.PARITY_NONE,
+#stopbits = serial.STOPBITS_ONE,
+#bytesize = serial.EIGHTBITS,
+#timeout = 1)
 
 # Serial communication commands
 # Message format:
@@ -63,22 +76,22 @@ ACCY = "ACCEL_Y"        # Acceleration on Y-axis
 ACCZ = "ACCEL_Z"        # Acceleration on Z-axis
 
 # GPIOs
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BCM)
+#GPIO.setwarnings(False)
+#GPIO.setmode(GPIO.BCM)
 
 # Columns as output to the keypad
-GPIO.setup(26, GPIO.OUT)       # C3
-GPIO.setup(13, GPIO.OUT)       # C2
-GPIO.setup(6, GPIO.OUT)        # C1
-GPIO.output(26, False)
-GPIO.output(13, False)
-GPIO.output(6, False)
+#GPIO.setup(26, GPIO.OUT)       # C3
+#GPIO.setup(13, GPIO.OUT)       # C2
+#GPIO.setup(6, GPIO.OUT)        # C1
+#GPIO.output(26, False)
+#GPIO.output(13, False)
+#GPIO.output(6, False)
 
 # Rows as input from the keypad
-GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
-GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
-GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
-GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
+#GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
+#GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
+#GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
+#GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
 
 #----------------
 # Layer #1
@@ -119,7 +132,7 @@ def mainMenu():
 # Reads command from main menu
 def mainCommands(command):
     global SYSTEM_RUNNING
-    
+
     if(command == "1"):
         keyGen()
     elif(command == "2"):
@@ -169,7 +182,7 @@ def keypad():
                 pass
         GPIO.output(6, False)
         time.sleep(keyDelay)
-    
+
         # Column 2
         GPIO.output(13, True)
         if(GPIO.input(17)):
@@ -210,8 +223,8 @@ def keypad():
             while(GPIO.input(5)):
                 pass
         GPIO.output(26, False)
-        time.sleep(keyDelay) 
-        
+        time.sleep(keyDelay)
+
         # Check if the user inputted 5 digit passcode
         if(len(keypadInput) >= 5):
             print("Keypad Inputs: ", keypadInput)
@@ -240,7 +253,7 @@ def keypad():
             print("Wait for 5 seconds to input again")
             time.sleep(5)     # Add 5 second delay to prevent spamming
             print("Keypad is ready")
-    
+
     # Clean up GPIO
     GPIO.cleanup()
     print("Keypad thread terminated")
@@ -250,7 +263,7 @@ def keypad():
 def camera():
     global SYSTEM_RUNNING
     global takePicture
-    
+
     camera = PiCamera()
     #camera.capture("/home/pi/Desktop/FR_System/Face.jpg")
     camera.start_preview(fullscreen= False, window = (100, 20, 640, 480))
@@ -265,35 +278,35 @@ def expKeyChecker():
     global SYSTEM_RUNNING
     global keyFile_Lock
     global activeKeys
-    
+
     while SYSTEM_RUNNING:
         time.sleep(1)
-        
+
         # Keeps track of a list of expired keys to be removed
-        expKeyList = []        
+        expKeyList = []
         # Today's date is the reference point
         today = datetime.now()
-        
+
         keyFile_Lock.acquire()           # Acquire lock to key file
         KF = open("keyList.dat", "r")    # Open the key list file
         keyList = KF.readlines()
         expKeyCount = 0                  # Number of expired keys detected
         # Check through the key file for expired dates and time
         for i in range(0, activeKeys):
-            keyInfo = keyList[i].split()            
+            keyInfo = keyList[i].split()
             expDate = datetime(int(keyInfo[5][6:]) + 2000, int(keyInfo[5][:-6]), int(keyInfo[5][3:-3]))
             # Compute the period offset
             if keyInfo[7] == "PM":
                 expTime = int(keyInfo[6][:-3]) + 12
             else:
                 expTime = int(keyInfo[6][:-3])
-                
+
             if expDate <= today and expTime <= today.hour:
                 expKeyList.append(keyInfo[0])  # Store expired key's number
-                expKeyCount += 1               # Increment the count                
+                expKeyCount += 1               # Increment the count
         KF.close()
         keyFile_Lock.release()           # Release lock to the key file
-        for i in range(0, expKeyCount):        
+        for i in range(0, expKeyCount):
             removeKey(expKeyList[i])
     print("Expired key checker thread has terminated")
 
@@ -301,13 +314,36 @@ def expKeyChecker():
 def accelMonitor():
     global SYSTEM_RUNNING
     global UART_Lock
-    
+
     while SYSTEM_RUNNING:
         #UART_Lock.acquire()    # Acquire lock to the UART
         time.sleep(1)
         #UART_Lock.release()    # Release lock to the UART
-        
+
     print("Accelerometer monitor thread has terminated")
+
+# Webcam
+def webcam():
+    global SYSTEM_RUNNING
+
+
+    while SYSTEM_RUNNING:
+        # Sets the frame flag true if it detects a face
+        time.sleep(1)
+
+    print("Webcam thread has terminated")
+
+# FNet verifies the face
+def FNet():
+    global SYSTEM_RUNNING
+
+    while SYSTEM_RUNNING:
+        if frameFlag:
+            frameFlag = False       # Reset the flag
+            # Run the CNN
+
+
+    print("FaceNet thread has terminated")
 
 #----------------
 # LAYER #2
@@ -317,7 +353,7 @@ def accelMonitor():
 def removeKey(keyNum):
     global activeKeys
     global keyFile_Lock
-    
+
     keyFile_Lock.acquire()
     KF = open("keyList.dat", "r")
     keyList = KF.readlines()
@@ -335,7 +371,7 @@ def removeKey(keyNum):
     activeKeys -= 1
     KF.close()
     keyFile_Lock.release()
-    return    
+    return
 
 def refresh():
     return
@@ -347,7 +383,7 @@ def refresh():
 def keyGen():
     global activeKeys
     global keyFile_Lock
-    
+
     if activeKeys < 10:
         print("\033[2J\033[H")
         print("Generating key...")
@@ -355,10 +391,10 @@ def keyGen():
         # Key is generated in this loop
         for i in range(0, 5):
             key += str(random.randrange(0, 9, 1))
-            
+
         # Prompt the user for the expiration date
         print("What is the life expectancy of this key?")
-        while True:        
+        while True:
             numDays = input("Enter number of days between 0-30: ")
             try:
                 days = int(numDays)
@@ -368,7 +404,7 @@ def keyGen():
                     break
             except ValueError:
                 print("Invalid input for the number of days!\nTry again")
-        
+
         # Prompt the user for the expiration time on that day
         while True:
             inputTime = input("Enter the time of day [1-12] (Rounded to the nearest hour): ")
@@ -385,7 +421,7 @@ def keyGen():
                     break
             except ValueError:
                 print("Invalid input for the time of the day!\nTry again")
-        
+
         # Prompt the user for the period of that expiration time
         while True:
             period = input("Enter the period [AM/PM] of that expiration time: ")
@@ -395,11 +431,11 @@ def keyGen():
                 break
 
         print("Key Generated: ", key)
-        
+
         # Stamp the creation and expiration time of the key in the key file
         today = datetime.now()
         expiration = today + timedelta(days)
-        
+
         keyFile_Lock.acquire()   # Acquire lock to the key file
         KF = open("keyList.dat", "a")
         KF.write(str(activeKeys + 1) + ".\t" +                          # Key No.
@@ -407,7 +443,7 @@ def keyGen():
              today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
              + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
              + inputTime + " " + period + "\n")
-        
+
         activeKeys = activeKeys + 1
         KF.close()
         keyFile_Lock.release()   # Releaes lock to the key file
@@ -452,7 +488,7 @@ def selectKeyRemoval():
         print("Key list is empty!")
         time.sleep(2)
         return
-    
+
     # Display the active keys
     print("\033[2J\033[H")
     print("List of Active Key(s)")
@@ -463,7 +499,7 @@ def selectKeyRemoval():
     KF.seek(0, 0)
     keyList = KF.readlines()
     print(keys)
-    
+
     keyNum = input("Which key is to be removed[No.] or type 'exit' to exit: ")
     if keyNum == "exit":
         return
@@ -473,7 +509,7 @@ def selectKeyRemoval():
         return
     KF.close()
     keyFile_Lock.release()
-    
+
     # Call the function to remove that key
     removeKey(keyNum + ".")
     return
@@ -496,7 +532,7 @@ def selectKeyRemoval():
 # Completely clear out all known keys
 def deleteAllKeys():
     global activeKeys
-    
+
     # Get confirmation from the user
     while True:
         action = input("Are you sure if you want to clear out the keys (y/n): ")
@@ -519,11 +555,11 @@ def deleteAllKeys():
 def UART_Send(command):
     global UART_Lock
     global serialport
-    
+
     # Signals to initiate/terminate the UART message
     global STX
     global ETX
-    
+
     UART_Lock.acquire()
     serialport.write(STX)
     serialport.write(str.encode(command))
@@ -535,18 +571,18 @@ def UART_Send(command):
 def ATmegaSettings():
     global serialport
     global UART_Lock
-    
+
     # Variables that represent the command to be sent
     global CW
     global CCW
     global ACCX
     global ACCY
     global ACCZ
-    
+
     # Status variables of the lock
     global lock
     global lockStatus
-    
+
     while True:
         print("\033[2J\033[H")
         print("ATmega328 Settings\n")
@@ -582,4 +618,3 @@ def ATmegaSettings():
             time.sleep(1)
         elif(command == "exit"):
             return
-        
