@@ -9,6 +9,7 @@
 # 4. Warn officials of possible break in
 # 5. Camera to take photo when a button is pressed
 
+
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
 import time                     # Delay
