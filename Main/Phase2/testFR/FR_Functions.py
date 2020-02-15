@@ -23,6 +23,7 @@ import numpy as np
 import argparse
 import time
 import cv2
+import video_face_thread as vft 
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
 # False: Program ends
@@ -48,7 +49,8 @@ keyDelay = 0.001
 # Variable for a frame
 # Flag variable to notify the FNet to check that frame
 frameFlag = False     # Flag to notify FNet that a frame needs to be checked
-
+frame = None 
+OpenFlag = False #flag that Face Recoginzed
 
 #----------------
 # Initialization of RPi's hardware
@@ -324,6 +326,8 @@ def accelMonitor():
 # Webcam
 def webcam():
     global SYSTEM_RUNNING
+    global frame
+    global frameFlag
 
     vs = VideoStream(src= 0).start()
     time.sleep(2.0)
@@ -334,6 +338,7 @@ def webcam():
     # in case we want to write it to disk), and then resize the frame
     # so we can apply face detection faster
         frame = vs.read()
+        #print(frame)
         orig = frame.copy()
         frame = imutils.resize(frame, width=400)
      
@@ -346,7 +351,13 @@ def webcam():
         for (x, y, w, h) in rects:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         # show the output frame
+        thereface= len(rects)
+        #print(thereface)
+        if thereface > 0:
+            frameFlag = True
+            #print(frameFlag)
         cv2.imshow("Frame", frame)
+        #print(frameFlag)
         key = cv2.waitKey(1) & 0xFF
 
     vs.stop()
@@ -357,12 +368,24 @@ def webcam():
 def FNet():
     global SYSTEM_RUNNING
     global frameFlag
+    global frame 
+    global OpenFlag
+
+    count = 0
 
     while SYSTEM_RUNNING:
         if frameFlag:
             frameFlag = False       # Reset the flag
             # Run the CNN
-
+            OpenFlag = vft.FaceRegVideo(frame)
+            print(OpenFlag)
+            if OpenFlag:
+                count= count +1
+            else:
+                count = 0
+            if count > 2:
+                print("Door Open")
+                count = 0
 
     print("FaceNet thread has terminated")
 
