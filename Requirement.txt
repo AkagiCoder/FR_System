@@ -26,7 +26,7 @@ This should resolve any conflicts between Raspbian using the UART and the python
 main.py Package Installation Guide
 1) pip3 install RPi.GPIO
 2) pip3 install pyserial [Don't forget to activate the serial port by menu > Preferences > Raspberry Pi Configuration > Interfaces]
-3) pip3 install pycamera
+3) pip3 install picamera
 -------------------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------------------
