@@ -9,13 +9,13 @@
 # 4. Warn officials of possible break in
 # 5. Camera to take photo when a button is pressed
 
-#import RPi.GPIO as GPIO         # GPIO for keypad
-#import random                   # Key generator
+import RPi.GPIO as GPIO         # GPIO for keypad
+import random                   # Key generator
 import time                     # Delay
-#import serial                   # UART
-#from datetime import datetime   # Date and time
-#from datetime import timedelta  # Perform arithmetic on dates/times
-#from picamera import PiCamera   # Raspberry Pi Camera
+import serial                   # UART
+from datetime import datetime   # Date and time
+from datetime import timedelta  # Perform arithmetic on dates/times
+from picamera import PiCamera   # Raspberry Pi Camera
 from threading import Lock
 
 # SYSTEM_RUNNING is the status flag of the program
@@ -50,13 +50,13 @@ frameFlag = False     # Flag to notify FNet that a frame needs to be checked
 #----------------
 
 # Serial communication
-#serialport = serial.Serial(
-#port = "/dev/serial0",
-#baudrate = 9600,
-#parity = serial.PARITY_NONE,
-#stopbits = serial.STOPBITS_ONE,
-#bytesize = serial.EIGHTBITS,
-#timeout = 1)
+serialport = serial.Serial(
+port = "/dev/serial0",
+baudrate = 9600,
+parity = serial.PARITY_NONE,
+stopbits = serial.STOPBITS_ONE,
+bytesize = serial.EIGHTBITS,
+timeout = 1)
 
 # Serial communication commands
 # Message format:
@@ -70,22 +70,22 @@ ACCY = "ACCEL_Y"        # Acceleration on Y-axis
 ACCZ = "ACCEL_Z"        # Acceleration on Z-axis
 
 # GPIOs
-#GPIO.setwarnings(False)
-#GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
 
 # Columns as output to the keypad
-#GPIO.setup(26, GPIO.OUT)       # C3
-#GPIO.setup(13, GPIO.OUT)       # C2
-#GPIO.setup(6, GPIO.OUT)        # C1
-#GPIO.output(26, False)
-#GPIO.output(13, False)
-#GPIO.output(6, False)
+GPIO.setup(26, GPIO.OUT)       # C3
+GPIO.setup(13, GPIO.OUT)       # C2
+GPIO.setup(6, GPIO.OUT)        # C1
+GPIO.output(26, False)
+GPIO.output(13, False)
+GPIO.output(6, False)
 
 # Rows as input from the keypad
-#GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
-#GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
-#GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
-#GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
+GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
+GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
+GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
+GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
 
 #----------------
 # Layer #1
