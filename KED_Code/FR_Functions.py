@@ -1,29 +1,17 @@
-# To do list:
-# 1. Set up an key expiration check
-#    a) Need to set up special case of key expiration (courier vs. user)
-# 2. Read from the ATmega's accelerometer
-#    a) Settings to read accelerometer
-#    b) Thread that constantly check the RXD port
-#    c)
-# 3. Adjust sensitivity of the accelerometer
-# 4. Warn officials of possible break in
-# 5. Camera to take photo when a button is pressed
-
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
 import time                     # Delay
 import serial                   # UART
-import cv2
+import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
-from deepface import DeepFace
-from deepface.commons import functions, distance as dst
-from deepface.basemodels import VGGFace, OpenFace, Facenet, FbDeepFace
-from keras.preprocessing import image
+from DeepFace.commons import functions, distance as dst
+from DeepFace.basemodels import OpenFace
+from tensorflow.keras.preprocessing import image
 
 
 # SYSTEM_RUNNING is the status flag of the program
@@ -46,14 +34,14 @@ UART_Lock = Lock()    # Mutex for accessing the UART
 keyDelay = 0.001
 
 #----------------
-# FCheck and Webcam Variables
+# FCheck and Camera Variables
 #----------------
-# Variable for a frame
-# Flag variable to notify the FNet to check that frame
-frameFlag = False     # Flag to notify FNet that a frame needs to be checked
-faces = []
-frame = None
-
+faceFlag = False            # Flag to print the person's name when verified
+faces = []                  # Face data
+frame = None                # Frame data from camera
+personName = "Bryan"        # Valid person
+personImg = "Bryan.png"     # Person to check in the database
+distSensitivity = 0.2
 #----------------
 # Initialization of RPi's hardware
 #----------------
@@ -111,15 +99,16 @@ def mainMenu():
         # Main menu with a list of commands
         print("\033[2J\033[H")
         print("Facial Recognition System Menu\n")
-        print("STATUS")
-        print("Door: ", lockStatus)
-        print("Active Keys: ", activeKeys, "\n")
-        print("List of Active Key(s)")
-        print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
-        KF = open("keyList.dat", "r")
-        keys = KF.read()
-        print(keys)
+        #print("STATUS")
+        #print("Door: ", lockStatus)
+        #print("Active Keys: ", activeKeys, "\n")
+        #print("List of Active Key(s)")
+        #print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
+        #KF = open("keyList.dat", "r")
+        #keys = KF.read()
+        #print(keys)
         print("Select an option:")
+        print("\t0. Main screen")
         print("\t1. Generate key")
         print("\t2. Key usage history")
         print("\t3. Remove a key")
@@ -136,7 +125,9 @@ def mainMenu():
 def mainCommands(command):
     global SYSTEM_RUNNING
 
-    if(command == "1"):
+    if(command == "0"):
+        mainScreen()
+    elif(command == "1"):
         keyGen()
     elif(command == "2"):
         keyHist()
@@ -311,11 +302,13 @@ def accelMonitor():
 
     print("Accelerometer monitor thread has terminated")
 
-# Webcam
-def webcam():
+# Captures frames from the camera using CV2
+def camera():
     global SYSTEM_RUNNING
     global faces
     global frame
+    global faceFlag
+    global personName
     
     # Load the face haar classifier
     faceCascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
@@ -335,12 +328,11 @@ def webcam():
             flags = cv2.FONT_HERSHEY_SIMPLEX
             )
         
-        #if len(faces) > 0:
-        #    print(faces[0])
-        
         # Draw a rectangle around the faces
         for(x, y, w, h) in faces:
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            if faceFlag:
+                cv2.putText(frame, personName, (x, y), cv2.FONT_HERSHEY_DUPLEX, 3, (255, 0, 0), 3)
         
         # Display the captured frame
         cv2.imshow('Video', frame)
@@ -354,52 +346,68 @@ def webcam():
 # Checks and verifies the face
 def FCheck():
     global SYSTEM_RUNNING
-    global frameFlag
+    global faceFlag
     global faces
     global frame
+    global personImg
+    global distSensitivity
     
-    model_name ='OpenFace'
-    distance_metric = 'cosine'
+    # Setup the OpenFace CNN using cosine as the distance
+    model_name ="OpenFace"
+    distance_metric = "cosine"
     threshold = functions.findThreshold(model_name, distance_metric)
-    print("Using OpenFace model backend", distance_metric,"distance.")
+    #print("Using OpenFace model backend", distance_metric,"distance.")
     model = OpenFace.loadModel()
     input_shape = (96, 96)
 
     # Image PATH GOES HERE
-    img1 = functions.detectFace('Face_Database/Adrian.jpg', input_shape)
+    img1 = functions.detectFace("Face_Database/" + personImg, input_shape)
     img1_representation = model.predict(img1)[0,:]
 
     while SYSTEM_RUNNING:
         if len(faces) > 0:
+            # Take the first face only
             x, y, w, h = faces[0]
+            # Crop the detected face
             detected_face = frame[int(y):int(y+h), int(x):int(x+w)]
             detected_face = cv2.resize(detected_face, input_shape)
             img_pixels = image.img_to_array(detected_face)
             img_pixels = np.expand_dims(img_pixels, axis = 0)
-            if True:
-                #normalize input in [0, 1]
-                img_pixels /= 255 
-            else:
-                #normalize input in [-1, +1]
-                img_pixels /= 127.5
-                img_pixels -= 1
-            
+            #normalize input in [0, 1]
+            img_pixels /= 255 
+            # Predict if the given face is valid
             img2_representation = model.predict(img_pixels)[0,:]
             distance = dst.findCosineDistance(img1_representation, img2_representation)
             print(distance)
-            # YOUR NAME GOES HERE
-            if distance < 0.2:
-                print("Adrian Detected!")
-        #if frameFlag:
-         #   frameFlag = False       # Reset the flag
-            # Run the CNN
+            
+            # Checks the distance (farther means the person is not valid)
+            if distance < distSensitivity:
+                faceFlag = True
+            else:
+                faceFlag = False
 
-
-    print("FaceNet thread has terminated")
+    print("FCheck thread has terminated")
 
 #----------------
 # LAYER #2
 #----------------
+
+# Main screen that displays realtime information
+def mainScreen():
+    try:
+        while True:
+            print("\033[2J\033[H")
+            print("STATUS")
+            print("Door: ", lockStatus)
+            print("Active Keys: ", activeKeys, "\n")
+            print("List of Active Key(s)")
+            print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
+            KF = open("keyList.dat", "r")
+            keys = KF.read()
+            print(keys)
+    except KeyboardInterrupt:
+        pass
+    return
 
 # Removes a key once user specifies the number '1.', '2.', etc.
 def removeKey(keyNum):

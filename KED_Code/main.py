@@ -1,8 +1,5 @@
 import threading
 import FR_Functions as FR
-from deepface import DeepFace
-from deepface.commons import functions, distance as dst
-from deepface.basemodels import VGGFace, OpenFace, Facenet, FbDeepFace
 
 # Count the current active keys
 try:
@@ -19,38 +16,28 @@ except FileNotFoundError:
     KF.close()
     FR.activeKeys = 0
 
-#model_name ='OpenFace'
-#distance_metric = 'cosine'
-#threshold = functions.findThreshold(model_name, distance_metric)
-#print("Using OpenFace model backend", distance_metric,"distance.")
-#model = OpenFace.loadModel()
-#input_shape = (96, 96)
-
 # Main Thread
 # List of threads
 t0 = threading.Thread(target = FR.mainMenu,)
 t1 = threading.Thread(target = FR.keypad, )
-#t2 = threading.Thread(target = FR.camera, )
-t3 = threading.Thread(target = FR.expKeyChecker, )
-#t4 = threading.Thread(target = FR.accelMonitor, )
-t5 = threading.Thread(target = FR.webcam, )
-t6 = threading.Thread(target = FR.FCheck, )
+t2 = threading.Thread(target = FR.expKeyChecker, )
+#t3 = threading.Thread(target = FR.accelMonitor, )
+t4 = threading.Thread(target = FR.camera, )
+t5 = threading.Thread(target = FR.FCheck, )
 
 # Initialize the thread
 t0.start()   # Main menu
 t1.start()   # Keypad
-#t2.start()   # Camera
-t3.start()   # Expired key checker
-#t4.start()   # Accelerometer checker
-t5.start()   # Webcam
-t6.start()   # FaceNet
+t2.start()   # Expired key checker
+#t3.start()   # Accelerometer checker
+t4.start()   # Camera
+t5.start()   # Face checker (CNN)
 
 # Wait for the threads to terminate
 t0.join()
 t1.join()
-#t2.join()
-t3.join()
-#t4.join()
+t2.join()
+#t3.join()
+t4.join()
 t5.join()
-t6.join()
 print("===== PROGRAM SUCCESSFULLY TERMINATED =====")
