@@ -26,7 +26,15 @@ This should resolve any conflicts between Raspbian using the UART and the python
 main.py Package Installation Guide
 1) pip3 install RPi.GPIO
 2) pip3 install pyserial [Don't forget to activate the serial port by menu > Preferences > Raspberry Pi Configuration > Interfaces]
-3) pip3 install picamera
+3) pip3 install opencv-python==3.4.6.27
+pip install numpy==1.14.0
+pip install pandas==0.23.4
+pip install matplotlib==2.2.2
+pip install gdown==3.10.1
+pip install opencv-python==3.4.4
+pip install tensorflow==1.9.0
+pip install keras==2.2.0
+pip install tqdm==4.30.0
 -------------------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------------------
