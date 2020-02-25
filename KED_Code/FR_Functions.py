@@ -137,7 +137,7 @@ def mainMenu():
 # Reads command from main menu
 def mainCommands(command):
     global SYSTEM_RUNNING
-
+    
     if(command == "1"):
         keyGen()
     elif(command == "2"):
@@ -367,21 +367,7 @@ def FCheck():
     global model
     global input_shape
     
-    # Setup the OpenFace CNN using cosine as the distance
-    #model_name = "OpenFace"
-    #distance_metric = "cosine"
-    #threshold = functions.findThreshold(model_name, distance_metric)
-    #print("Using OpenFace model backend", distance_metric,"distance.")
-    #model = OpenFace.loadModel()
-    #input_shape = (96, 96)
-    
-    # Setup the Facenet CNN using cosine as the distance
-    #model_name = "Facenet"
-    #distance_metric = "cosine"
     threshold = functions.findThreshold(model_name, distance_metric)
-    #print("Using Facenet model backend", distance_metric,"distance.")
-    #model = Facenet.loadModel()
-    #input_shape = (160, 160)
 
     # Image PATH GOES HERE
     img1 = functions.detectFace("Face_Database/" + personImg, input_shape)
