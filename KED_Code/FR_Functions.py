@@ -10,7 +10,7 @@ from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
 from DeepFace.commons import functions, distance as dst
-from DeepFace.basemodels import OpenFace
+from DeepFace.basemodels import OpenFace, Facenet
 from tensorflow.keras.preprocessing import image
 
 
@@ -39,9 +39,23 @@ keyDelay = 0.001
 faceFlag = False            # Flag to print the person's name when verified
 faces = []                  # Face data
 frame = None                # Frame data from camera
-personName = "Bryan"        # Valid person
-personImg = "Bryan.png"     # Person to check in the database
-distSensitivity = 0.2
+personName = "Adrian"       # Valid person
+personImg = "Adrian.jpg"    # Person to check in the database
+distance_metric = "cosine"  # Distance type
+distSensitivity = 0.2       # Adjust the distance sensitivity
+
+# OpenFace
+#print("Using OpenFace model backend", distance_metric,"distance.")
+#model_name = "OpenFace"
+#model = OpenFace.loadModel()
+#input_shape = (96, 96)
+
+# Facenet
+print("Using Facenet model backend", distance_metric,"distance.")
+model_name = "Facenet"
+model = Facenet.loadModel()
+input_shape = (160, 160)
+
 #----------------
 # Initialization of RPi's hardware
 #----------------
@@ -99,16 +113,15 @@ def mainMenu():
         # Main menu with a list of commands
         print("\033[2J\033[H")
         print("Facial Recognition System Menu\n")
-        #print("STATUS")
-        #print("Door: ", lockStatus)
-        #print("Active Keys: ", activeKeys, "\n")
-        #print("List of Active Key(s)")
-        #print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
-        #KF = open("keyList.dat", "r")
-        #keys = KF.read()
-        #print(keys)
+        print("STATUS")
+        print("Door: ", lockStatus)
+        print("Active Keys: ", activeKeys, "\n")
+        print("List of Active Key(s)")
+        print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
+        KF = open("keyList.dat", "r")
+        keys = KF.read()
+        print(keys)
         print("Select an option:")
-        print("\t0. Main screen")
         print("\t1. Generate key")
         print("\t2. Key usage history")
         print("\t3. Remove a key")
@@ -125,9 +138,7 @@ def mainMenu():
 def mainCommands(command):
     global SYSTEM_RUNNING
 
-    if(command == "0"):
-        mainScreen()
-    elif(command == "1"):
+    if(command == "1"):
         keyGen()
     elif(command == "2"):
         keyHist()
@@ -351,14 +362,26 @@ def FCheck():
     global frame
     global personImg
     global distSensitivity
+    global model_name
+    global distance_metric
+    global model
+    global input_shape
     
     # Setup the OpenFace CNN using cosine as the distance
-    model_name ="OpenFace"
-    distance_metric = "cosine"
-    threshold = functions.findThreshold(model_name, distance_metric)
+    #model_name = "OpenFace"
+    #distance_metric = "cosine"
+    #threshold = functions.findThreshold(model_name, distance_metric)
     #print("Using OpenFace model backend", distance_metric,"distance.")
-    model = OpenFace.loadModel()
-    input_shape = (96, 96)
+    #model = OpenFace.loadModel()
+    #input_shape = (96, 96)
+    
+    # Setup the Facenet CNN using cosine as the distance
+    #model_name = "Facenet"
+    #distance_metric = "cosine"
+    threshold = functions.findThreshold(model_name, distance_metric)
+    #print("Using Facenet model backend", distance_metric,"distance.")
+    #model = Facenet.loadModel()
+    #input_shape = (160, 160)
 
     # Image PATH GOES HERE
     img1 = functions.detectFace("Face_Database/" + personImg, input_shape)
@@ -391,23 +414,6 @@ def FCheck():
 #----------------
 # LAYER #2
 #----------------
-
-# Main screen that displays realtime information
-def mainScreen():
-    try:
-        while True:
-            print("\033[2J\033[H")
-            print("STATUS")
-            print("Door: ", lockStatus)
-            print("Active Keys: ", activeKeys, "\n")
-            print("List of Active Key(s)")
-            print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
-            KF = open("keyList.dat", "r")
-            keys = KF.read()
-            print(keys)
-    except KeyboardInterrupt:
-        pass
-    return
 
 # Removes a key once user specifies the number '1.', '2.', etc.
 def removeKey(keyNum):

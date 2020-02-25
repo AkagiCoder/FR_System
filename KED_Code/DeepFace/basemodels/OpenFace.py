@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 import gdown
-
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
