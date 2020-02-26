@@ -23,7 +23,7 @@ SYSTEM_RUNNING = True
 # Global Variables
 #----------------
 lockStatus = "LOCKED"
-lock = False
+lock = True
 activeKeys = 0        # Total number of active keys (Max = 10)
 keypadInput = ""      # Variable to store the inputs from keypad
 keyFile_Lock = Lock() # Mutex for accessing the key file
@@ -39,8 +39,8 @@ keyDelay = 0.001
 faceFlag = False            # Flag to print the person's name when verified
 faces = []                  # Face data
 frame = None                # Frame data from camera
-personName = "Adrian"       # Valid person
-personImg = "Adrian.jpg"    # Person to check in the database
+personName = "Bryan"       # Valid person
+personImg = "Bryan.png"    # Person to check in the database
 distance_metric = "cosine"  # Distance type
 distSensitivity = 0.2       # Adjust the distance sensitivity
 
@@ -240,14 +240,13 @@ def keypad():
             for i in range(0, activeKeys):
                 keyInfo = keyList[i].split()
                 if keyInfo[1] == keypadInput:
-                    #lock = False
-                    #lockStatus = "Unlocked"
+                    lock = False
+                    lockStatus = "Unlocked"
                     validCode = True
                     KH = open("keyHistory.dat", "a")
                     today = datetime.now()
                     KH.write(keypadInput + "\t" + today.strftime("%d/%m/%y\t%I:%M %p") + "\n")
                     KH.close()
-                    lockCont()
             if validCode:
                 print("Valid key code")
             else:
@@ -271,7 +270,7 @@ def expKeyChecker():
     global activeKeys
 
     while SYSTEM_RUNNING:
-        time.sleep(1)
+        time.sleep(0)
 
         # Keeps track of a list of expired keys to be removed
         expKeyList = []
@@ -352,7 +351,7 @@ def camera():
     video_capture.release()
     cv2.destroyAllWindows()
 
-    print("Webcam thread has terminated")
+    print("Camera thread has terminated")
 
 # Checks and verifies the face
 def FCheck():
@@ -366,6 +365,8 @@ def FCheck():
     global distance_metric
     global model
     global input_shape
+    global lock
+    global lockStatus
     
     threshold = functions.findThreshold(model_name, distance_metric)
 
@@ -374,6 +375,7 @@ def FCheck():
     img1_representation = model.predict(img1)[0,:]
 
     while SYSTEM_RUNNING:
+        time.sleep(0)
         if len(faces) > 0:
             # Take the first face only
             x, y, w, h = faces[0]
@@ -392,11 +394,35 @@ def FCheck():
             # Checks the distance (farther means the person is not valid)
             if distance < distSensitivity:
                 faceFlag = True
+                lock = False
+                lockStatus = "UNLOCKED"
             else:
                 faceFlag = False
 
     print("FCheck thread has terminated")
 
+# Thread that controls the door lock
+def doorLock():
+    global SYSTEM_RUNNING
+    global lock
+    global lockStatus
+    global CW
+    global CCW
+    
+    while SYSTEM_RUNNING:
+        time.sleep(0)
+        if not lock:
+            # Unlock the door
+            UART_Send(CCW)
+            print("Lock is unlocked for 5 s")
+            time.sleep(5)
+            
+            # Relock the door
+            UART_Send(CW)
+            lock = True
+            lockStatus = "LOCKED"
+    
+    print("Door lock thread has terminated")
 #----------------
 # LAYER #2
 #----------------
@@ -670,3 +696,5 @@ def ATmegaSettings():
             time.sleep(1)
         elif(command == "exit"):
             return
+    
+    

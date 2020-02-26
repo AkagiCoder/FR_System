@@ -24,6 +24,7 @@ t2 = threading.Thread(target = FR.expKeyChecker, )
 #t3 = threading.Thread(target = FR.accelMonitor, )
 t4 = threading.Thread(target = FR.camera, )
 t5 = threading.Thread(target = FR.FCheck, )
+t6 = threading.Thread(target = FR.doorLock, )
 
 # Initialize the thread
 t0.start()   # Main menu
@@ -32,6 +33,7 @@ t2.start()   # Expired key checker
 #t3.start()   # Accelerometer checker
 t4.start()   # Camera
 t5.start()   # Face checker (CNN)
+t6.start()   # Door lock
 
 # Wait for the threads to terminate
 t0.join()
@@ -40,4 +42,5 @@ t2.join()
 #t3.join()
 t4.join()
 t5.join()
+t6.join()
 print("===== PROGRAM SUCCESSFULLY TERMINATED =====")
