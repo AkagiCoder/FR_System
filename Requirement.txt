@@ -64,3 +64,6 @@ python3 -m pip install tensorflow-2.0.0-cp37-none-linux_armv7l.whl
 -------------------------------------------------------------------------------------------
 Installing CV2 Dependency
 https://blog.piwheels.org/how-to-work-out-the-missing-dependencies-for-a-python-package/
+
+Weights Download link:
+https://drive.google.com/file/d/1971Xk5RwedbudGgTIrGAL4F7Aifu7id1/view?usp=sharing
