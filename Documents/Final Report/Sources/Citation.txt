@@ -1,0 +1,19 @@
+Citations
+
+Products:
+	https://www.amazon.com/Fingerprint-Electronic-Recognition-Biometric-Rechargeable/dp/B0787YY1T1?ref_=fsclp_pl_dp_3&th=1
+
+Facial Recoginition Products:
+	Parasonic FacePro: https://www.security.us.panasonic.com/technologies/facepro
+	Cognitec : https://www.cognitec.com/products-overview.html
+	Google Nest: https://store.google.com/us/product/nest_hello_doorbell?hl=en-US&GoogleNest&utm_source=nest_redirect&utm_medium=google_oo&utm_campaign=GS103056&utm_term=hello
+
+Facial Recoginition Law Bans:
+	https://www.securityinfowatch.com/access-identity/biometrics/facial-recognition-solutions/article/21110872/private-sector-use-of-facial-recognition-faces-legal-challenges
+
+Deep Learing Info:
+		https://en.wikipedia.org/wiki/Deep_learning
+		
+FaceNet Info:
+			https://arxiv.org/abs/1503.03832
+			
