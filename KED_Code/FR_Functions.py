@@ -39,6 +39,7 @@ curses.start_color()
 curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
 curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
 curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLACK)
+curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
 #------------------------
 # Accelerometer Variables
@@ -142,10 +143,9 @@ def mainMenu():
     while SYSTEM_RUNNING:
         # Screen setup
         stdscr.clear()
-        #stdscr.refresh()
         height, width = stdscr.getmaxyx()
-        XCursor = width // 4
-        YCursor = height // 4
+        XCursor = width // 6
+        YCursor = height // 6
 
         # Print title of the menu
         stdscr.attron(curses.color_pair(3))
@@ -210,7 +210,7 @@ def mainMenu():
         YCursor = YCursor + 2
         stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
         YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time")
+        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
         keyFile_Lock.acquire()          # Grab the file lock
         KF = open("keyList.dat", "r")   # Read only
         EOF = KF.readline()
@@ -223,10 +223,10 @@ def mainMenu():
 
         # Print OPTIONS
         YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "Select an opton using UP/DOWN arrows:")
-        XCursor = XCursor + 5
-            
-        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "Select an opton using UP/DOWN arrows and ENTER:")
+        
+        XCursor = XCursor + 5    
+        YCursor = YCursor + 2
         if optNum == 1:
             stdscr.addstr(YCursor, XCursor, "1. Generate key", curses.A_STANDOUT)
         else:
@@ -246,15 +246,15 @@ def mainMenu():
                 
         YCursor = YCursor + 1
         if optNum == 4:
-            stdscr.addstr(YCursor, XCursor, "4. Lock/Unlock the door", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "4. DELETE ALL ACTIVE KEYS", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "4. Lock/Unlock the door")
+            stdscr.addstr(YCursor, XCursor, "4. DELETE ALL ACTIVE KEYS")
 
         YCursor = YCursor + 1
         if optNum == 5:
-            stdscr.addstr(YCursor, XCursor, "5. DELETE ALL ACTIVE KEYS", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "5. Lock/Unlock the door", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "5. DELETE ALL ACTIVE KEYS")
+            stdscr.addstr(YCursor, XCursor, "5. Lock/Unlock the door")
 
         YCursor = YCursor + 1
         if optNum == 6:
@@ -292,8 +292,8 @@ def mainMenu():
         elif k == 10:
             # Commands
             if optNum == 1:
-                curses.curs_set(1)
-                curses.endwin()
+                #curses.curs_set(1)
+                #curses.endwin()
                 keyGen()
             elif optNum == 7:
                 SYSTEM_RUNNING = False
@@ -619,9 +619,6 @@ def removeKey(keyNum):
     keyFile_Lock.release()
     return
 
-def refresh():
-    return
-
 # Generate a 5-digit key
 # TO DO:
 # a) Needs to check if the newly generated key already exist in the list.
@@ -629,76 +626,201 @@ def refresh():
 def keyGen():
     global activeKeys
     global keyFile_Lock
+    global stdscr
 
-    if activeKeys < 10:
-        print("\033[2J\033[H")
-        print("Generating key...")
-        key = ""
-        # Key is generated in this loop
-        for i in range(0, 5):
-            key += str(random.randrange(0, 9, 1))
+    k = 0
+    optNum = 1
+    
+    key = ""
+    # Key is generated in this loop
+    for i in range(0, 5):
+        key += str(random.randrange(0, 9, 1))
 
-        # Prompt the user for the expiration date
-        print("What is the life expectancy of this key?")
-        while True:
-            numDays = input("Enter number of days between 0-30: ")
-            try:
-                days = int(numDays)
-                if days > 30 or days < 0:
-                    print("Life expectancy must be between 0-30 days!\nTry again")
+    numDays = 0
+    inputTime = 0
+    period = "AM"
+    
+    while True:
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        XCursor = width // 6
+        YCursor = height // 6
+
+        # Print title
+        stdscr.attron(curses.color_pair(3))
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "Key Generation Menu")
+        stdscr.attroff(curses.color_pair(3))
+        stdscr.attroff(curses.A_BOLD)
+
+        XCursor = XCursor + 2
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Generated key: ")
+        XTemp = stdscr.getyx()[1]
+        stdscr.addstr(YCursor, XTemp, key, curses.color_pair(2))
+
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "Use LEFT/RIGHT keys to increase/decrease/select", curses.color_pair(1)) 
+        
+        YCursor = YCursor + 1
+        if optNum == 1:
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "Regenerate KEY [Press ENTER]")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "Regenerate KEY [Press ENTER]")
+
+        YCursor = YCursor + 1
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "Key life expectancy [0-30 days]:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + str(numDays), curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Key life expectancy [0-30 days]:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + str(numDays), curses.color_pair(2))
+
+        YCursor = YCursor + 1
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "Enter the expiration time of day [0-12 o' clock]:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + str(inputTime), curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Enter the expiration time of day [0-12 o' clock]:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + str(inputTime), curses.color_pair(2))                  
+
+        YCursor = YCursor + 1
+        if optNum == 4:
+            stdscr.addstr(YCursor, XCursor, "Peiod of the expiration time:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + period, curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Peiod of the expiration time:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + period, curses.color_pair(2))
+
+        XCursor = XCursor - 2
+        YCursor = YCursor + 3
+        if optNum == 5:
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(YCursor, XCursor, "Cancel")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.color_pair(1))
+            XCursor = stdscr.getyx()[1] + 3
+        else:
+            stdscr.addstr(YCursor, XCursor, "Cancel", curses.color_pair(1))
+            XCursor = stdscr.getyx()[1] + 3
+
+        if optNum == 6:
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.color_pair(2))
+            stdscr.addstr(YCursor, XCursor, "Confirm")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Confirm", curses.color_pair(2))
+
+            
+        stdscr.refresh()
+        k = stdscr.getch()
+
+        # Key up
+        if k == 65:
+            optNum = optNum - 1
+            if optNum < 1:
+                optNum = 1
+         # Key down       
+        elif k == 66:
+            optNum = optNum + 1
+            if optNum > 5:
+                optNum = 5
+
+        # Increase/decrease numDays using arrow keys
+        if optNum == 2:
+            if k == 67:
+                if numDays < 30:
+                    numDays = numDays + 1
+            if k == 68:
+                if numDays > 0:
+                    numDays = numDays - 1
+
+        # Increase/decrease inputTime using arrow keys
+        elif optNum == 3:
+            if k == 67:
+                if inputTime < 12:
+                    inputTime = inputTime + 1
+            if k == 68:
+                if inputTime > 0:
+                    inputTime = inputTime - 1
+
+        # Select period [AM/PM]  using arrow keys
+        elif optNum == 4:
+            if k == 67 or k == 68:
+                if period == "AM":
+                    period = "PM"
                 else:
-                    break
-            except ValueError:
-                print("Invalid input for the number of days!\nTry again")
-
-        # Prompt the user for the expiration time on that day
-        while True:
-            inputTime = input("Enter the time of day [1-12] (Rounded to the nearest hour): ")
-            try:
-                time = int(inputTime)
-                if time < 1 or time > 12:
-                    print("Time of the day must be between 1-12 o' clock!\nTry again")
-                else:
+                    period = "AM"
+                    
+        # Selection between "Cancel" and "Confirm"
+        elif optNum == 5:
+            if k == 67:
+                optNum = 6
+        elif optNum == 6:
+            if k == 68:
+                optNum = 5
+                
+                    
+        # Enter
+        if k == 10:
+            if optNum == 1:
+                key = ""
+                # Key is generated in this loop
+                for i in range(0, 5):
+                    key += str(random.randrange(0, 9, 1))
+            elif optNum == 5:
+                return
+            elif optNum == 6:
+                if activeKeys < 10:
                     # Format the time string
-                    if time < 10:
-                        inputTime = "0" + inputTime + ":00"
+                    time = ""
+                    if inputTime < 10:
+                        time = "0" + str(inputTime) + ":00"
                     else:
-                        inputTime = inputTime + ":00"
-                    break
-            except ValueError:
-                print("Invalid input for the time of the day!\nTry again")
+                        time = str(inputTime) + ":00"
+                
+                    # Stamp the creation and expiration time of the key in the key file
+                    today = datetime.now()
+                    expiration = today + timedelta(int(numDays))
+                    keyFile_Lock.acquire()   # Acquire lock to the key file
+                    KF = open("keyList.dat", "a")
+                    KF.write(str(activeKeys + 1) + ".\t" +                          # Key No.
+                         key + "\t" +                                               # Key
+                         today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
+                         + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
+                         + time + " " + period + "\n")
 
-        # Prompt the user for the period of that expiration time
-        while True:
-            period = input("Enter the period [AM/PM] of that expiration time: ")
-            if period != "AM" and period != "PM":
-                print("Invalid input for the period of the day!\nTry again")
-            else:
-                break
-
-        print("Key Generated: ", key)
-
-        # Stamp the creation and expiration time of the key in the key file
-        today = datetime.now()
-        expiration = today + timedelta(days)
-
-        keyFile_Lock.acquire()   # Acquire lock to the key file
-        KF = open("keyList.dat", "a")
-        KF.write(str(activeKeys + 1) + ".\t" +                          # Key No.
-             key + "\t" +                                               # Key
-             today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
-             + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
-             + inputTime + " " + period + "\n")
-
-        activeKeys = activeKeys + 1
-        KF.close()
-        keyFile_Lock.release()   # Releaes lock to the key file
-        input("Press ENTER to continue")
-    # Key limit reached
-    else:
-        print("Maximum limit of keys reached!")
-        time.sleep(2)
-    return
+                    activeKeys = activeKeys + 1
+                    KF.close()
+                    keyFile_Lock.release()   # Releaes lock to the key file
+                    return
+                else:
+                    XCursor = stdscr.getyx()[1] + 3
+                    stdscr.attron(curses.A_STANDOUT)
+                    stdscr.attron(curses.color_pair(1))
+                    stdscr.addstr(YCursor, XCursor, "Maximum key limit reached!")
+                    stdscr.attroff(curses.A_STANDOUT)
+                    stdscr.attroff(curses.color_pair(1))
+                    stdscr.refresh()
+                    curses.napms(5000)
+                    return  
 
 # Shows the history of key usage
 def keyHist():
