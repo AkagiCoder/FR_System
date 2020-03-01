@@ -211,7 +211,6 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
-        keyFile_Lock.acquire()          # Grab the file lock
         KF = open("keyList.dat", "r")   # Read only
         EOF = KF.readline()
         while EOF:  # Parse line by line
@@ -219,7 +218,6 @@ def mainMenu():
             stdscr.addstr(YCursor, XCursor, EOF)
             EOF = KF.readline()
         KF.close()                      # Close the file
-        keyFile_Lock.release()          # Release the file lock
 
         # Print OPTIONS
         YCursor = YCursor + 2
@@ -227,44 +225,39 @@ def mainMenu():
         
         XCursor = XCursor + 5    
         YCursor = YCursor + 2
+
         if optNum == 1:
-            stdscr.addstr(YCursor, XCursor, "1. Generate key", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "1. LOCK/UNLOCK the door", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "1. Generate key")
-                
-        YCursor = YCursor + 1
-        if optNum == 2:
-            stdscr.addstr(YCursor, XCursor, "2. Key usage history", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "2. Key usage history")
+            stdscr.addstr(YCursor, XCursor, "1. LOCK/UNLOCK the door")
 
         YCursor = YCursor + 1
-        if optNum == 3:
-            stdscr.addstr(YCursor, XCursor, "3. Remove a key", curses.A_STANDOUT)
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "2. Generate key", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "3. Remove a key")
+            stdscr.addstr(YCursor, XCursor, "2. Generate key")
                 
         YCursor = YCursor + 1
-        if optNum == 4:
-            stdscr.addstr(YCursor, XCursor, "4. DELETE ALL ACTIVE KEYS", curses.A_STANDOUT)
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "3. Key removal", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "4. DELETE ALL ACTIVE KEYS")
+            stdscr.addstr(YCursor, XCursor, "3. Key removal")
+
+        YCursor = YCursor + 1
+        if optNum == 4:
+            stdscr.addstr(YCursor, XCursor, "4. Key usage history", curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "4. Key usage history")
 
         YCursor = YCursor + 1
         if optNum == 5:
-            stdscr.addstr(YCursor, XCursor, "5. Lock/Unlock the door", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "5. ATmega settings", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "5. Lock/Unlock the door")
-
-        YCursor = YCursor + 1
-        if optNum == 6:
-            stdscr.addstr(YCursor, XCursor, "6. ATmega settings", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "6. ATmega settings")
+            stdscr.addstr(YCursor, XCursor, "5. ATmega settings")
 
         XCursor = XCursor - 5
         YCursor = YCursor + 3
-        if optNum == 7:
+        if optNum == 6:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
@@ -286,16 +279,20 @@ def mainMenu():
         # Key down
         elif k == 66:
             optNum = optNum + 1
-            if optNum > 7:
-                optNum = 7
+            if optNum > 6:
+                optNum = 6
         # Enter
         elif k == 10:
             # Commands
             if optNum == 1:
-                #curses.curs_set(1)
-                #curses.endwin()
+                print("hello")
+            elif optNum == 2:
                 keyGen()
-            elif optNum == 7:
+            elif optNum == 3:
+                selectKeyRemoval()
+            elif optNum == 4:
+                keyHist()
+            elif optNum == 6:
                 SYSTEM_RUNNING = False
                 
     curses.curs_set(1)
@@ -775,8 +772,7 @@ def keyGen():
                 optNum = 6
         elif optNum == 6:
             if k == 68:
-                optNum = 5
-                
+                optNum = 5                
                     
         # Enter
         if k == 10:
@@ -824,25 +820,58 @@ def keyGen():
 
 # Shows the history of key usage
 def keyHist():
-    KH = open("keyHistory.dat", "r")
-    while(True):
-        print("\033[2J\033[H")
-        print("Key Usage History\n")
-        print("Key\tDate\t\tTime")
-        usage = KH.read()
-        print(usage)
-        command = input("Enter 'clear' to clear history\nor 'back' to return to the main menu\n>> ")
-        if command == "clear":
-            KHTemp = open("keyHistory.dat", "w")
-            KHTemp.close()
-            print("Key history has been cleared!")
-            time.sleep(2)
-        elif command == "back":
-            KH.close()
-            return
-        else:
-            print("Invalid option")
-            time.sleep(2)
+    global stdscr
+
+    k = 0
+    optNum = 1
+    while k != ord('q'):
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        XCursor = width // 6
+        YCursor = height // 6
+        
+        # Print title
+        stdscr.attron(curses.color_pair(3))
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "Key Usage History")
+        stdscr.attroff(curses.color_pair(3))
+        stdscr.attroff(curses.A_BOLD)
+
+        XCursor = XCursor + 2
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Key\tDate\t\tTime", curses.A_BOLD)
+        KF = open("keyHistory.dat", "r")   # Read only
+        EOF = KF.readline()
+        while EOF:  # Parse line by line
+            YCursor = YCursor + 1
+            stdscr.addstr(YCursor, XCursor, EOF)
+            EOF = KF.readline()
+        KF.close()                      # Close the file
+        
+        stdscr.refresh()
+        k = stdscr.getch()
+
+        
+        
+    #KH = open("keyHistory.dat", "r")
+    #while(True):
+    #    print("\033[2J\033[H")
+    #    print("Key Usage History\n")
+    #    print("Key\tDate\t\tTime")
+    #    usage = KH.read()
+    #    print(usage)
+    #    command = input("Enter 'clear' to clear history\nor 'back' to return to the main menu\n>> ")
+    #    if command == "clear":
+    #        KHTemp = open("keyHistory.dat", "w")
+    #        KHTemp.close()
+    #        print("Key history has been cleared!")
+    #        time.sleep(2)
+    #    elif command == "back":
+    #        KH.close()
+    #        return
+    #    else:
+    #        print("Invalid option")
+    #        time.sleep(2)
             #print("\033[2J\033[H")
             #print("Key Usage History\n")
             #print("Key\tDate\t\tTime")
@@ -851,74 +880,141 @@ def keyHist():
 # Select to remove an active key
 def selectKeyRemoval():
     global keyFile_Lock
-    # Exit this option if the list is empty
-    if activeKeys < 1:
-        print("Key list is empty!")
-        time.sleep(2)
-        return
+    global stdscr
 
-    # Display the active keys
-    print("\033[2J\033[H")
-    print("List of Active Key(s)")
-    print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
-    keyFile_Lock.acquire()
-    KF = open("keyList.dat", "r")
-    keys = KF.read()
-    KF.seek(0, 0)
-    keyList = KF.readlines()
-    print(keys)
+    k = 0
+    optNum = 1
+    while True:
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        XCursor = width // 6
+        YCursor = height // 6
 
-    keyNum = input("Which key is to be removed[No.] or type 'exit' to exit: ")
-    if keyNum == "exit":
-        return
-    if int(keyNum) > activeKeys or int(keyNum) < 1:
-        print("Invalid [No.]!")
-        time.sleep(2)
-        return
-    KF.close()
-    keyFile_Lock.release()
+        # Print title
+        stdscr.attron(curses.color_pair(3))
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "Key Removal")
+        stdscr.attroff(curses.color_pair(3))
+        stdscr.attroff(curses.A_BOLD)
 
-    # Call the function to remove that key
-    removeKey(keyNum + ".")
-    return
+        XCursor = XCursor + 2
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
+        KF = open("keyList.dat", "r")   # Read only
+        EOF = KF.readline()
+        lineNum = 0
+        while EOF:  # Parse line by line
+            lineNum = lineNum + 1
+            YCursor = YCursor + 1
+            if optNum == lineNum:
+                stdscr.addstr(YCursor, XCursor, EOF, curses.A_STANDOUT)
+            else:
+                stdscr.addstr(YCursor, XCursor, EOF)
+            EOF = KF.readline()
+        KF.close()                      # Close the file
 
-# This piece of code is to soon be removed and replaced
-#def lockCont():
-#    global lock
-#    global lockStatus
-#    global serialport
+        YCursor = YCursor + 2
+        YRemoveAll = YCursor
+        if optNum == lineNum + 1:
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.color_pair(4))
+            stdscr.addstr(YCursor, XCursor, "REMOVE ALL ACTIVE KEYS")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.color_pair(4))
+        else:
+            stdscr.addstr(YCursor, XCursor, "REMOVE ALL ACTIVE KEYS", curses.color_pair(4))
+        XRemoveAll = stdscr.getyx()[1] + 3
+        
+        XCursor = XCursor - 2
+        YCursor = YCursor + 3
+        if optNum == lineNum + 2:
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.color_pair(1))
+            stdscr.addstr(YCursor, XCursor, "Cancel")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.color_pair(1))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Cancel", curses.color_pair(1))
+        
+        stdscr.refresh()
+        k = stdscr.getch()
+        
+        # Key up
+        if k == 65:
+            optNum = optNum - 1
+            if optNum < 1:
+                optNum = 1
+         # Key down       
+        elif k == 66:
+            optNum = optNum + 1
+            if optNum > lineNum + 2:
+                optNum = lineNum + 2
+        # Enter
+        elif k == 10:
+            # Cancel
+            if optNum == lineNum + 2:
+                return
+            # Remove all keys options
+            elif optNum == lineNum + 1:
+                k = 0
+                optRemove = 0
+                while True:                    
+                    if optRemove == 1:
+                        stdscr.attron(curses.A_BOLD)
+                        stdscr.attron(curses.color_pair(2))
+                        stdscr.addstr(YRemoveAll, XRemoveAll, "YES")
+                        stdscr.attroff(curses.A_BOLD)
+                        stdscr.attroff(curses.color_pair(2))
+                    else:
+                        stdscr.addstr(YRemoveAll, XRemoveAll, "YES", curses.color_pair(2))
+                        
+                    if optRemove == 0:
+                        stdscr.attron(curses.A_BOLD)
+                        stdscr.attron(curses.color_pair(1))
+                        stdscr.addstr(YRemoveAll, stdscr.getyx()[1] + 2, "NO")
+                        stdscr.attroff(curses.A_BOLD)
+                        stdscr.attroff(curses.color_pair(1))
+                    else:
+                        stdscr.addstr(YRemoveAll, stdscr.getyx()[1] + 2, "NO", curses.color_pair(1))
+                        
+                    stdscr.refresh()
+                    k = stdscr.getch()
 
-#    if lock:
-#        serialport.write(str.encode("2"))
-#        lock = False
-#        lockStatus = "UNLOCKED"
-#    else:
-#        serialport.write(str.encode("1"))
-#        lock = True
-#        lockStatus = "LOCKED"
+                    # Prompt user for confirmation on deleting all keys
+                    if k == 68:
+                        optRemove = 1
+                    elif k == 67:
+                        optRemove = 0
+                    elif k == 10:
+                        if optRemove == 0:
+                            break;
+                        else:
+                            deleteAllKeys()
+                            break;
+                
+            # Select key to remove
+            elif optNum <= lineNum:
+                removeKey(str(lineNum) + ".")
+                if optNum == lineNum:
+                    optNum = optNum - 1                
 
 # Completely clear out all known keys
 def deleteAllKeys():
     global activeKeys
-
-    # Get confirmation from the user
-    while True:
-        action = input("Are you sure if you want to clear out the keys (y/n): ")
-        if (action == "y"):
-            KF = open("keyList.dat", "w")
-            KF.close()
-            activeKeys = 0
-            print("Entire key list will be cleared")
-            time.sleep(3)
-            return
-        elif (action == "n"):
-            print("Action has been cancelled")
-            time.sleep(3)
-            return
-        else:
-            print("Invalid input, please enter 'y' for yes or 'n' for no...")
-            time.sleep(3)
-
+    global keyFile_Lock
+    keyFile_Lock.acquire()
+    KF = open("keyList.dat", "w")
+    KF.close()
+    activeKeys = 0
+    keyFile_Lock.release()
+    return
+    
 # Sends the commmand using UART
 def UART_Send(command):
     global UART_Lock
