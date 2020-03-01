@@ -16,4 +16,4 @@ Deep Learing Info:
 		
 FaceNet Info:
 			https://arxiv.org/abs/1503.03832
-			
+			https://medium.com/analytics-vidhya/introduction-to-facenet-a-unified-embedding-for-face-recognition-and-clustering-dbdac8e6f02
