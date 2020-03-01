@@ -6,7 +6,6 @@ import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-import curses
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
@@ -25,27 +24,10 @@ SYSTEM_RUNNING = True
 #----------------
 lockStatus = "LOCKED"
 lock = True
-activeKeys = 0             # Total number of active keys (Max = 10)
-keypadInput = ""           # Variable to store the inputs from keypad
-keypadMessage = "Keypad is ready"
-keyFile_Lock = Lock()      # Mutex for accessing the key file
-UART_Lock = Lock()         # Mutex for accessing the UART
-
-#-----------------
-# Curses Variables
-#-----------------
-stdscr = curses.initscr()  # Initiate the curses terminal
-curses.start_color()
-curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLACK)
-
-#------------------------
-# Accelerometer Variables
-#------------------------
-accelX = ""
-accelY = ""
-accelZ = ""
+activeKeys = 0        # Total number of active keys (Max = 10)
+keypadInput = ""      # Variable to store the inputs from keypad
+keyFile_Lock = Lock() # Mutex for accessing the key file
+UART_Lock = Lock()    # Mutex for accessing the UART
 
 # Delay required to give enough time for the voltage
 # to drop for each output column.
@@ -71,7 +53,7 @@ distSensitivity = 0.2       # Adjust the distance sensitivity
 # Facenet
 print("Using Facenet model backend", distance_metric,"distance.")
 model_name = "Facenet"
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #----------------
@@ -122,185 +104,33 @@ GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
 
 # Thread that displays the main menu options
 def mainMenu():
-    global SYSTEM_RUNNING
+    global SYSTE_RUNNING
     global lockStatus
     global activeKeys
     global keypadInput
-    global keyFile_Lock
-    global stdscr
-    global keypadInput
-    global keypadMessage
-    global accelX, accelY, accelZ
 
-    # Curses settings
-    stdscr.timeout(500)
-    k = 0
-    optNum = 1
-    curses.curs_set(0)
-    curses.noecho()
-        
     while SYSTEM_RUNNING:
-        # Screen setup
-        stdscr.clear()
-        #stdscr.refresh()
-        height, width = stdscr.getmaxyx()
-        XCursor = width // 4
-        YCursor = height // 4
-
-        # Print title of the menu
-        stdscr.attron(curses.color_pair(3))
-        stdscr.attron(curses.A_BOLD)
-        stdscr.addstr(YCursor, XCursor, "Facial Recognition System Menu")
-        stdscr.attroff(curses.color_pair(3))
-        stdscr.attroff(curses.A_BOLD)
-
-        # Print STATUS
-        YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "STATUS", curses.A_UNDERLINE)
-        # Shift a column to the right
-        XCursor = XCursor + 2
-        YCursor = YCursor + 1
-        # Lock status
-        stdscr.addstr(YCursor, XCursor, "Door Lock: ")
-        XTemp = stdscr.getyx()[1]
-        if lockStatus == "LOCKED":
-            stdscr.addstr(YCursor, XTemp, lockStatus, curses.color_pair(2))
-        else:
-            # Blink red when door is unlocked
-            stdscr.attron(curses.color_pair(1))
-            stdscr.attron(curses.A_BLINK)
-            stdscr.addstr(YCursor, XTemp, lockStatus)
-            stdscr.attroff(curses.color_pair(1))
-            stdscr.attroff(curses.A_BLINK)
-
-        # Current number of active keys
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Active Keys: ")
-        XTemp = stdscr.getyx()[1]
-        stdscr.addstr(YCursor, XTemp, str(activeKeys))
-
-        # Current accelerometer reading
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Accel-X: ")
-        XTemp = stdscr.getyx()[1]
-        stdscr.addstr(YCursor, XTemp, accelX)
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Accel-Y: ")
-        XTemp = stdscr.getyx()[1]
-        stdscr.addstr(YCursor, XTemp, accelY)
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Accel-Z: ")
-        XTemp = stdscr.getyx()[1]
-        stdscr.addstr(YCursor, XTemp, accelZ)
-                      
-        # Current keypad input
-        XCursor = XCursor - 2
-        YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "Keypad", curses.A_UNDERLINE)
-        XCursor = XCursor + 2
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Keypad state: " + keypadMessage)
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Current Input: ")
-        XTemp = stdscr.getyx()[1]
-        stdscr.addstr(YCursor, XTemp, keypadInput)
-        
-        # Print active keys
-        XCursor = XCursor - 2
-        YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time")
-        keyFile_Lock.acquire()          # Grab the file lock
-        KF = open("keyList.dat", "r")   # Read only
-        EOF = KF.readline()
-        while EOF:  # Parse line by line
-            YCursor = YCursor + 1
-            stdscr.addstr(YCursor, XCursor, EOF)
-            EOF = KF.readline()
-        KF.close()                      # Close the file
-        keyFile_Lock.release()          # Release the file lock
-
-        # Print OPTIONS
-        YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "Select an opton using UP/DOWN arrows:")
-        XCursor = XCursor + 5
-            
-        YCursor = YCursor + 1
-        if optNum == 1:
-            stdscr.addstr(YCursor, XCursor, "1. Generate key", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "1. Generate key")
-                
-        YCursor = YCursor + 1
-        if optNum == 2:
-            stdscr.addstr(YCursor, XCursor, "2. Key usage history", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "2. Key usage history")
-
-        YCursor = YCursor + 1
-        if optNum == 3:
-            stdscr.addstr(YCursor, XCursor, "3. Remove a key", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "3. Remove a key")
-                
-        YCursor = YCursor + 1
-        if optNum == 4:
-            stdscr.addstr(YCursor, XCursor, "4. Lock/Unlock the door", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "4. Lock/Unlock the door")
-
-        YCursor = YCursor + 1
-        if optNum == 5:
-            stdscr.addstr(YCursor, XCursor, "5. DELETE ALL ACTIVE KEYS", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "5. DELETE ALL ACTIVE KEYS")
-
-        YCursor = YCursor + 1
-        if optNum == 6:
-            stdscr.addstr(YCursor, XCursor, "6. ATmega settings", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "6. ATmega settings")
-
-        XCursor = XCursor - 5
-        YCursor = YCursor + 3
-        if optNum == 7:
-            stdscr.attron(curses.A_BLINK)
-            stdscr.attron(curses.A_STANDOUT)
-            stdscr.attron(curses.color_pair(1))
-            stdscr.addstr(YCursor, XCursor, "TERMINATE PROGRAM")
-            stdscr.attroff(curses.A_BLINK)
-            stdscr.attroff(curses.A_STANDOUT)
-            stdscr.attroff(curses.color_pair(1))
-        else:
-            stdscr.addstr(YCursor, XCursor, "TERMINATE PROGRAM", curses.color_pair(1))   
-            
-        stdscr.refresh()
-        k = stdscr.getch()
-
-        # Key up
-        if k == 65:
-            optNum = optNum - 1
-            if optNum < 1:
-                optNum = 1
-        # Key down
-        elif k == 66:
-            optNum = optNum + 1
-            if optNum > 7:
-                optNum = 7
-        # Enter
-        elif k == 10:
-            # Commands
-            if optNum == 1:
-                curses.curs_set(1)
-                curses.endwin()
-                keyGen()
-            elif optNum == 7:
-                SYSTEM_RUNNING = False
-                
-    curses.curs_set(1)
-    curses.echo()
-    curses.endwin()
+        # Main menu with a list of commands
+        print("\033[2J\033[H")
+        print("Facial Recognition System Menu\n")
+        print("STATUS")
+        print("Door: ", lockStatus)
+        print("Active Keys: ", activeKeys, "\n")
+        print("List of Active Key(s)")
+        print("No.\tKey\tCreation Date & Time\tExpiration Date & Time")
+        KF = open("keyList.dat", "r")
+        keys = KF.read()
+        print(keys)
+        print("Select an option:")
+        print("\t1. Generate key")
+        print("\t2. Key usage history")
+        print("\t3. Remove a key")
+        print("\t4. Lock/unlock door")
+        print("\t5. DELETE ALL ACTIVE KEYS")
+        print("\t6. ATmega Settings")
+        print("\n\tEnter 'exit' to terminate the program")
+        command = input(">> ")
+        mainCommands(command)
     print("Main menu thread has terminated")
     return
 
@@ -331,7 +161,6 @@ def mainCommands(command):
 def keypad():
     global SYSTEM_RUNNING
     global keypadInput
-    global keypadMessage
     global keyDelay
     global lock
     global lockStatus
@@ -403,6 +232,7 @@ def keypad():
 
         # Check if the user inputted 5 digit passcode
         if(len(keypadInput) >= 5):
+            print("Keypad Inputs: ", keypadInput)
             keyFile_Lock.acquire()
             KF = open("keyList.dat", "r")
             keyList = KF.readlines()
@@ -418,14 +248,15 @@ def keypad():
                     KH.write(keypadInput + "\t" + today.strftime("%d/%m/%y\t%I:%M %p") + "\n")
                     KH.close()
             if validCode:
-                keypadMessage = "Valid key code; Releasing the lock"
+                print("Valid key code")
             else:
-                keypadMessage = "Invalid key code; Try again after 5 seconds"
+                print("Invalid key code")
             KF.close()
             keyFile_Lock.release()
             keypadInput = ""  # Reset buffer
+            print("Wait for 5 seconds to input again")
             time.sleep(5)     # Add 5 second delay to prevent spamming
-            keypadMessage = "Keypad is ready"
+            print("Keypad is ready")
 
     # Clean up GPIO
     GPIO.cleanup()
@@ -583,6 +414,7 @@ def doorLock():
         if not lock:
             # Unlock the door
             UART_Send(CCW)
+            print("Lock is unlocked for 5 s")
             time.sleep(5)
             
             # Relock the door
