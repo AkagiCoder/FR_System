@@ -16,6 +16,14 @@ except FileNotFoundError:
     KF.close()
     FR.activeKeys = 0
 
+# Check if keyHistory.dat exists
+try:
+    KH = open("keyHistory.dat", "r")
+    KH.close()
+except FileNotFoundError:
+    KH = open("keyHistory.dat", "w")
+    KH.close()
+
 # Main Thread
 # List of threads
 t0 = threading.Thread(target = FR.mainMenu,)
@@ -23,7 +31,7 @@ t1 = threading.Thread(target = FR.keypad, )
 t2 = threading.Thread(target = FR.expKeyChecker, )
 #t3 = threading.Thread(target = FR.accelMonitor, )
 t4 = threading.Thread(target = FR.camera, )
-#t5 = threading.Thread(target = FR.FCheck, )
+t5 = threading.Thread(target = FR.FCheck, )
 t6 = threading.Thread(target = FR.doorLock, )
 
 # Initialize the thread
@@ -32,7 +40,7 @@ t1.start()   # Keypad
 t2.start()   # Expired key checker
 #t3.start()   # Accelerometer checker
 t4.start()   # Camera
-#t5.start()   # Face checker (CNN) [Don't forget to uncomment the CNN model
+t5.start()   # Face checker (CNN) [Don't forget to uncomment the CNN model
 t6.start()   # Door lock
 
 # Wait for the threads to terminate

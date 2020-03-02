@@ -31,16 +31,6 @@ keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
 
-#-----------------
-# Curses Variables
-#-----------------
-stdscr = curses.initscr()  # Initiate the curses terminal
-curses.start_color()
-curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLACK)
-curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-
 #------------------------
 # Accelerometer Variables
 #------------------------
@@ -62,6 +52,7 @@ personName = "Bryan"       # Valid person
 personImg = "Bryan.png"    # Person to check in the database
 distance_metric = "cosine"  # Distance type
 distSensitivity = 0.2       # Adjust the distance sensitivity
+distance = 1.0
 
 # OpenFace
 #print("Using OpenFace model backend", distance_metric,"distance.")
@@ -70,10 +61,23 @@ distSensitivity = 0.2       # Adjust the distance sensitivity
 #input_shape = (96, 96)
 
 # Facenet
-print("Using Facenet model backend", distance_metric,"distance.")
+print("Using Facenet model backend and", distance_metric,"distance.")
+print("Firing up Tensorflow: Setup will take at least 30 seconds...")
+print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
+
+#-----------------
+# Curses Variables
+#-----------------
+stdscr = curses.initscr()  # Initiate the curses terminal
+curses.start_color()
+curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLACK)
+curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 
 #----------------
 # Initialization of RPi's hardware
@@ -132,6 +136,7 @@ def mainMenu():
     global keypadInput
     global keypadMessage
     global accelX, accelY, accelZ
+    global distance
 
     # Curses settings
     stdscr.timeout(500)
@@ -179,6 +184,11 @@ def mainMenu():
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, str(activeKeys))
 
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "FNet Distance: ")
+        XTemp = stdscr.getyx()[1]
+        stdscr.addstr(YCursor, XTemp, str(distance))
+        
         # Current accelerometer reading
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "Accel-X: ")
@@ -221,8 +231,11 @@ def mainMenu():
 
         # Print OPTIONS
         YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "Select an opton using UP/DOWN arrows and ENTER:")
-        
+        stdscr.attron(curses.A_ITALIC)
+        stdscr.attron(curses.color_pair(5))
+        stdscr.addstr(YCursor, XCursor, "Select an option using the UP/DOWN arrows and ENTER:")
+        stdscr.attroff(curses.A_ITALIC)
+        stdscr.attroff(curses.color_pair(5))
         XCursor = XCursor + 5    
         YCursor = YCursor + 2
 
@@ -251,9 +264,9 @@ def mainMenu():
 
         YCursor = YCursor + 1
         if optNum == 5:
-            stdscr.addstr(YCursor, XCursor, "5. ATmega settings", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "5. ATmega settings [Work in Progress]", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "5. ATmega settings")
+            stdscr.addstr(YCursor, XCursor, "5. ATmega settings [Work in Progress]")
 
         XCursor = XCursor - 5
         YCursor = YCursor + 3
@@ -285,13 +298,18 @@ def mainMenu():
         elif k == 10:
             # Commands
             if optNum == 1:
-                print("hello")
+                lockCont()
             elif optNum == 2:
                 keyGen()
             elif optNum == 3:
                 selectKeyRemoval()
             elif optNum == 4:
                 keyHist()
+            elif optNum == 5:
+                curses.curs_set(1)
+                curses.echo()
+                curses.endwin()
+                ATmegaSettings()
             elif optNum == 6:
                 SYSTEM_RUNNING = False
                 
@@ -299,29 +317,6 @@ def mainMenu():
     curses.echo()
     curses.endwin()
     print("Main menu thread has terminated")
-    return
-
-# Reads command from main menu
-def mainCommands(command):
-    global SYSTEM_RUNNING
-    
-    if(command == "1"):
-        keyGen()
-    elif(command == "2"):
-        keyHist()
-    elif(command == "3"):
-        selectKeyRemoval()
-    elif(command == "4"):
-        lockCont()
-    elif(command == "5"):
-        deleteAllKeys()
-    elif(command == "6"):
-        ATmegaSettings()
-    elif(command == "exit"):
-        SYSTEM_RUNNING = False
-        print ("SYSTEM SHUTTING DOWN...\n")
-    else:
-        input("Invalid option! Press any key to continue")
     return
 
 # Thread that takes the input from the keypad
@@ -533,6 +528,7 @@ def FCheck():
     global input_shape
     global lock
     global lockStatus
+    global distance
     
     threshold = functions.findThreshold(model_name, distance_metric)
 
@@ -555,7 +551,6 @@ def FCheck():
             # Predict if the given face is valid
             img2_representation = model.predict(img_pixels)[0,:]
             distance = dst.findCosineDistance(img1_representation, img2_representation)
-            print(distance)
             
             # Checks the distance (farther means the person is not valid)
             if distance < distSensitivity:
@@ -591,6 +586,16 @@ def doorLock():
 #----------------
 # LAYER #2
 #----------------
+
+def lockCont():
+    global lock
+    global lockStatus
+
+    if not lock:
+        lock = True
+    else:
+        lock = False
+        lockStatus = "UNLOCKED"
 
 # Removes a key once user specifies the number '1.', '2.', etc.
 def removeKey(keyNum):
@@ -657,9 +662,13 @@ def keyGen():
         stdscr.addstr(YCursor, XTemp, key, curses.color_pair(2))
 
         YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Use LEFT/RIGHT keys to increase/decrease/select", curses.color_pair(1)) 
+        stdscr.attron(curses.A_ITALIC)
+        stdscr.attron(curses.color_pair(5))
+        stdscr.addstr(YCursor, XCursor, "Use LEFT/RIGHT keys to increase/decrease/select:")
+        stdscr.attroff(curses.A_ITALIC)
+        stdscr.attroff(curses.color_pair(5))
         
-        YCursor = YCursor + 1
+        YCursor = YCursor + 2
         if optNum == 1:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
@@ -824,7 +833,7 @@ def keyHist():
 
     k = 0
     optNum = 1
-    while k != ord('q'):
+    while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -840,42 +849,91 @@ def keyHist():
         XCursor = XCursor + 2
         YCursor = YCursor + 2
         stdscr.addstr(YCursor, XCursor, "Key\tDate\t\tTime", curses.A_BOLD)
-        KF = open("keyHistory.dat", "r")   # Read only
-        EOF = KF.readline()
+        KH = open("keyHistory.dat", "r")   # Read only
+        EOF = KH.readline()
         while EOF:  # Parse line by line
             YCursor = YCursor + 1
             stdscr.addstr(YCursor, XCursor, EOF)
-            EOF = KF.readline()
-        KF.close()                      # Close the file
+            EOF = KH.readline()
+        KH.close()                      # Close the file
+
+        YCursor = YCursor + 2
+        YRemoveAll = YCursor
+        if optNum == 1:
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.color_pair(4))
+            stdscr.addstr(YCursor, XCursor, "CLEAR HISTORY")
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.color_pair(4))
+        else:
+            stdscr.addstr(YCursor, XCursor, "CLEAR HISTORY", curses.color_pair(4))
+        XRemoveAll = stdscr.getyx()[1] + 3
         
+        YCursor = YCursor + 3
+        XCursor = XCursor - 2
+        if optNum == 2:
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.A_BLINK)
+            stdscr.addstr(YCursor, XCursor, "Back")
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.A_BLINK)        
+        else:
+            stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
+            
         stdscr.refresh()
         k = stdscr.getch()
 
-        
-        
-    #KH = open("keyHistory.dat", "r")
-    #while(True):
-    #    print("\033[2J\033[H")
-    #    print("Key Usage History\n")
-    #    print("Key\tDate\t\tTime")
-    #    usage = KH.read()
-    #    print(usage)
-    #    command = input("Enter 'clear' to clear history\nor 'back' to return to the main menu\n>> ")
-    #    if command == "clear":
-    #        KHTemp = open("keyHistory.dat", "w")
-    #        KHTemp.close()
-    #        print("Key history has been cleared!")
-    #        time.sleep(2)
-    #    elif command == "back":
-    #        KH.close()
-    #        return
-    #    else:
-    #        print("Invalid option")
-    #        time.sleep(2)
-            #print("\033[2J\033[H")
-            #print("Key Usage History\n")
-            #print("Key\tDate\t\tTime")
-            #print(usage)
+        if k == 65:
+            optNum = 1
+        elif k == 66:
+            optNum = 2
+        elif k == 10:
+            if optNum == 1:
+                optClear = 0
+                # Prompt user for confirmation on clearing the history
+                while True:
+                    if optClear == 1:
+                        stdscr.attron(curses.A_BOLD)
+                        stdscr.attron(curses.color_pair(2))
+                        stdscr.addstr(YRemoveAll, XRemoveAll, "YES")
+                        stdscr.attroff(curses.A_BOLD)
+                        stdscr.attroff(curses.color_pair(2))
+                    else:
+                        stdscr.addstr(YRemoveAll, XRemoveAll, "YES", curses.color_pair(2))
+                        
+                    if optClear == 0:
+                        stdscr.attron(curses.A_BOLD)
+                        stdscr.attron(curses.color_pair(1))
+                        stdscr.addstr(YRemoveAll, stdscr.getyx()[1] + 2, "NO")
+                        stdscr.attroff(curses.A_BOLD)
+                        stdscr.attroff(curses.color_pair(1))
+                    else:
+                        stdscr.addstr(YRemoveAll, stdscr.getyx()[1] + 2, "NO", curses.color_pair(1))
+                        
+                    stdscr.refresh()
+                    k = stdscr.getch()
+
+                    if k == 68:
+                        optClear = 1
+                    elif k == 67:
+                        optClear = 0
+                    elif k == 10:
+                        # Cancel the clear
+                        if optClear == 0:
+                            break;
+                        # Clear the history
+                        else:
+                            KHTemp = open("keyHistory.dat", "w")
+                            KHTemp.close()
+                            break
+            # Exit this menu
+            elif optNum == 2:
+                return
+            
 
 # Select to remove an active key
 def selectKeyRemoval():
@@ -935,12 +993,12 @@ def selectKeyRemoval():
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
-            stdscr.addstr(YCursor, XCursor, "Cancel")
+            stdscr.addstr(YCursor, XCursor, "Back")
             stdscr.attroff(curses.A_BLINK)
             stdscr.attroff(curses.A_STANDOUT)
             stdscr.attroff(curses.color_pair(1))
         else:
-            stdscr.addstr(YCursor, XCursor, "Cancel", curses.color_pair(1))
+            stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
         
         stdscr.refresh()
         k = stdscr.getch()
@@ -962,8 +1020,8 @@ def selectKeyRemoval():
                 return
             # Remove all keys options
             elif optNum == lineNum + 1:
-                k = 0
                 optRemove = 0
+                # Prompt user for confirmation on deleting all keys
                 while True:                    
                     if optRemove == 1:
                         stdscr.attron(curses.A_BOLD)
@@ -986,7 +1044,6 @@ def selectKeyRemoval():
                     stdscr.refresh()
                     k = stdscr.getch()
 
-                    # Prompt user for confirmation on deleting all keys
                     if k == 68:
                         optRemove = 1
                     elif k == 67:
@@ -1081,6 +1138,8 @@ def ATmegaSettings():
             print(message.decode("utf-8"))
             time.sleep(1)
         elif(command == "exit"):
+            curses.curs_set(0)
+            curses.noecho()
             return
     
     
