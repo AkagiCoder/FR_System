@@ -65,7 +65,7 @@ print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
-model = Facenet.loadModel()
+#model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -264,9 +264,9 @@ def mainMenu():
 
         YCursor = YCursor + 1
         if optNum == 5:
-            stdscr.addstr(YCursor, XCursor, "5. ATmega settings [Work in Progress]", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "5. Settings", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "5. ATmega settings [Work in Progress]")
+            stdscr.addstr(YCursor, XCursor, "5. Settings")
 
         XCursor = XCursor - 5
         YCursor = YCursor + 3
@@ -306,10 +306,7 @@ def mainMenu():
             elif optNum == 4:
                 keyHist()
             elif optNum == 5:
-                curses.curs_set(1)
-                curses.echo()
-                curses.endwin()
-                ATmegaSettings()
+                settings()
             elif optNum == 6:
                 SYSTEM_RUNNING = False
                 
@@ -465,11 +462,24 @@ def expKeyChecker():
 def accelMonitor():
     global SYSTEM_RUNNING
     global UART_Lock
+    global accelX, accelY, accelZ
 
     while SYSTEM_RUNNING:
-        #UART_Lock.acquire()    # Acquire lock to the UART
-        time.sleep(1)
-        #UART_Lock.release()    # Release lock to the UART
+        #UART_Send(ACCX)
+        #message = serialport.readline()
+        #accelX = message.decode("utf-8")
+        UART_Send(ACCY)
+        message = serialport.readline()
+        accelY = message.decode("utf-8")
+        #UART_Send(ACCZ)
+        #message = serialport.readline()
+        #accelZ = message.decode("utf-8")
+        
+        #accelX = "Hello"
+        #time.sleep(1)
+        #accelX = "World"
+        #time.sleep(1)
+
 
     print("Accelerometer monitor thread has terminated")
 
@@ -1087,9 +1097,9 @@ def UART_Send(command):
     serialport.write(ETX)
     UART_Lock.release()
 
-# Controls the ATmega board using UART.
+# Settings for miscellaneous parameters
 # The commands are listed near the top of this code
-def ATmegaSettings():
+def settings():
     global serialport
     global UART_Lock
 
@@ -1104,42 +1114,75 @@ def ATmegaSettings():
     global lock
     global lockStatus
 
-    while True:
-        print("\033[2J\033[H")
-        print("ATmega328 Settings\n")
-        print("\t1. Rotate motor CW")
-        print("\t2. Rotate motor CCW")
-        print("\t3. Retrieve acceleration on X-axis")
-        print("\t4. Retrieve acceleration on Y-axis")
-        print("\t5. Retrieve acceleration on Z-axis")
-        print("\nType 'exit' to exit")
-        command = input("\nSelect an option: ")
+    global stdscr
+
+    k = 0
+    optNum = 1
+    while k !=  ord('q'):
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        XCursor = width // 6
+        YCursor = height // 6
+
+        # Print title
+        stdscr.attron(curses.color_pair(3))
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "Settings")
+        stdscr.attroff(curses.color_pair(3))
+        stdscr.attroff(curses.A_BOLD)
+
+        XCursor = XCursor + 2
+        YCursor = YCursor + 2
+        stdscr.attron(curses.A_ITALIC)
+        stdscr.attron(curses.color_pair(5))
+        stdscr.addstr(YCursor, XCursor, "Use LEFT/RIGHT keys to increase/decrease/select:")
+        stdscr.attroff(curses.A_ITALIC)
+        stdscr.attroff(curses.color_pair(5))
+        
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity: ")
+
+        
+        stdscr.refresh()
+        k = stdscr.getch()
+
+    
+#    while True:
+#        print("\033[2J\033[H")
+#        print("ATmega328 Settings\n")
+#        print("\t1. Rotate motor CW")
+#        print("\t2. Rotate motor CCW")
+#        print("\t3. Retrieve acceleration on X-axis")
+#        print("\t4. Retrieve acceleration on Y-axis")
+#        print("\t5. Retrieve acceleration on Z-axis")
+#        print("\nType 'exit' to exit")
+#        command = input("\nSelect an option: ")
 
         # Rotate motor CW
-        if (command == "1"):
-            UART_Send(CW)
-        # Rotate motor CCW
-        elif (command == "2"):
-            UART_Send(CCW)
-        # Request acceleration of X-axis
-        elif (command == "3"):
-            UART_Send(ACCX)
-            message = serialport.readline()
-            print(message.decode("utf-8"))
-            time.sleep(1)
-        elif (command == "4"):
-            UART_Send(ACCY)
-            message = serialport.readline()
-            print(message.decode("utf-8"))
-            time.sleep(1)
-        elif (command == "5"):
-            UART_Send(ACCZ)
-            message = serialport.readline()
-            print(message.decode("utf-8"))
-            time.sleep(1)
-        elif(command == "exit"):
-            curses.curs_set(0)
-            curses.noecho()
-            return
+#        if (command == "1"):
+#            UART_Send(CW)
+#        # Rotate motor CCW
+#        elif (command == "2"):
+#            UART_Send(CCW)
+#        # Request acceleration of X-axis
+#        elif (command == "3"):
+#            UART_Send(ACCX)
+#            message = serialport.readline()
+#            print(message.decode("utf-8"))
+#            time.sleep(1)
+#        elif (command == "4"):
+#            UART_Send(ACCY)
+#            message = serialport.readline()
+#            print(message.decode("utf-8"))
+#            time.sleep(1)
+#        elif (command == "5"):
+#            UART_Send(ACCZ)
+#            message = serialport.readline()
+#            print(message.decode("utf-8"))
+#            time.sleep(1)
+#        elif(command == "exit"):
+#            curses.curs_set(0)
+#            curses.noecho()
+#            return
     
     
