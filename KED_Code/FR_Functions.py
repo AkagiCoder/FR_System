@@ -465,21 +465,12 @@ def accelMonitor():
     global accelX, accelY, accelZ
 
     while SYSTEM_RUNNING:
-        #UART_Send(ACCX)
-        #message = serialport.readline()
-        #accelX = message.decode("utf-8")
-        UART_Send(ACCY)
+        UART_Send("ACCEL")
         message = serialport.readline()
-        accelY = message.decode("utf-8")
-        #UART_Send(ACCZ)
-        #message = serialport.readline()
-        #accelZ = message.decode("utf-8")
-        
-        #accelX = "Hello"
-        #time.sleep(1)
-        #accelX = "World"
-        #time.sleep(1)
-
+        accel = message.decode("utf-8")
+        accelX = accel[0]
+        accelY = accel[1]
+        accelZ = accel[2]
 
     print("Accelerometer monitor thread has terminated")
 
