@@ -99,9 +99,7 @@ STX = b'\x02'           # Start of text
 ETX = b'\x03'           # End of text
 CW = "RCW"              # Rotate motor clockwise
 CCW = "RCCW"            # Rotate motor counter-clockwise
-ACCX = "ACCEL_X"        # Acceleration on X-axis
-ACCY = "ACCEL_Y"        # Acceleration on Y-axis
-ACCZ = "ACCEL_Z"        # Acceleration on Z-axis
+AC = "ACCEL"            # Acceleration on XYZ
 
 # GPIOs
 GPIO.setwarnings(False)
@@ -461,16 +459,26 @@ def expKeyChecker():
 # Thread that monitors the MPU6050 (Accelerometer)
 def accelMonitor():
     global SYSTEM_RUNNING
-    global UART_Lock
     global accelX, accelY, accelZ
+    global AC
 
     while SYSTEM_RUNNING:
-        UART_Send("ACCEL")
+        UART_Send(AC)
         message = serialport.readline()
-        accel = message.decode("utf-8")
-        accelX = accel[0]
-        accelY = accel[1]
-        accelZ = accel[2]
+        accel = message.decode("utf-8").split() # Parse the received message
+        count = 0
+        for value in accel:
+            if count == 0:
+                accelX = accel[0]
+            elif count == 1:
+                accelY = accel[1]
+            elif count == 2:
+                accelZ = accel[2]
+            count = count + 1
+        #accelX = accel[0]  # X-Axis
+        #accelY = accel[1]  # Y-Axis
+        #accelZ = accel[2]  # Z-Axis
+        
 
     print("Accelerometer monitor thread has terminated")
 
@@ -584,6 +592,24 @@ def doorLock():
             lockStatus = "LOCKED"
     
     print("Door lock thread has terminated")
+
+# Alarm thread that periodically checks the values of the
+# accelerometer and detects for possible break in.
+# 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
+# 2) If the door is locked and the contact switch is opened, trigger the alarm.
+# NOTE: sensitivity is set in the 'Settings'
+def alarm:
+    global SYSTEM_RUNNING
+    global lockStatus
+    global accelX, accelY, accelZ
+
+    while SYSTEM_RUNNING:
+        # If the door is lock, perform the force check
+        if lockStatus == "LOCKED":
+            time.sleep(0)
+            
+print("Security thread has terminated")
+
 #----------------
 # LAYER #2
 #----------------
@@ -734,7 +760,6 @@ def keyGen():
             stdscr.attroff(curses.color_pair(2))
         else:
             stdscr.addstr(YCursor, XCursor, "Confirm", curses.color_pair(2))
-
             
         stdscr.refresh()
         k = stdscr.getch()
@@ -1091,24 +1116,25 @@ def UART_Send(command):
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
-    global serialport
-    global UART_Lock
+    #global serialport
+    #global UART_Lock
 
     # Variables that represent the command to be sent
-    global CW
-    global CCW
-    global ACCX
-    global ACCY
-    global ACCZ
+    #global CW
+    #global CCW
+    #global ACCX
+    #global ACCY
+    #global ACCZ
 
     # Status variables of the lock
-    global lock
-    global lockStatus
+    #global lock
+    #global lockStatus
 
     global stdscr
 
     k = 0
     optNum = 1
+    
     while k !=  ord('q'):
         stdscr.clear()
         height, width = stdscr.getmaxyx()
@@ -1129,13 +1155,29 @@ def settings():
         stdscr.addstr(YCursor, XCursor, "Use LEFT/RIGHT keys to increase/decrease/select:")
         stdscr.attroff(curses.A_ITALIC)
         stdscr.attroff(curses.color_pair(5))
-        
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity: ")
 
+        YCursor = YCursor + 1
+        if optNum == 1:
+            stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + "HELLO", curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + "HELLO", curses.color_pair(2))
         
         stdscr.refresh()
         k = stdscr.getch()
+
+        # Key up
+        if k == 65:
+            optNum = optNum - 1
+            if optNum < 1:
+                optNum = 1
+        elif k == 66:
+            optNum = optNum + 1
+            if optNum > 2:
+                optNum = 5
 
     
 #    while True:
