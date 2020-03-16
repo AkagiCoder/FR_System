@@ -37,7 +37,8 @@ volatile uint8_t motorStep = 0;
 // Function Declarations
 void motorPortInit();
 void rotateMotor(uint8_t dir, uint8_t step);
-void MPU_UART(uint8_t axis);
+//void MPU_UART(uint8_t axis);
+void MPU_UART();
 
 // Volatile Variables for RX UART interrupt
 volatile uint8_t commPos;			// Position of the array of characters [string]
@@ -55,6 +56,22 @@ int main(void)
 
 	while(1)
 	{
+		/*
+		MPU_ReadAccel(accel);
+		itoa(accel[X_Axis], buffer, 10);
+		USART_Print("X: ");
+		USART_Print(buffer);
+		USART_Print("\r\n");
+		itoa(accel[Y_Axis], buffer, 10);
+		USART_Print("Y: ");
+		USART_Print(buffer);
+		USART_Print("\r\n");
+		itoa(accel[Z_Axis], buffer, 10);
+		USART_Print("Z: ");
+		USART_Print(buffer);
+		USART_Print("\r\n\r\n");
+		_delay_ms(200);
+		*/
 	}
 }
 
@@ -86,12 +103,17 @@ ISR(USART_RX_vect)
 			else if(strcmp("RCCW", command) == 0)
 				rotateMotor(CCW, 50);
 			// Retrieve value from MPU accelerometer on the X-axis
+			/*
 			else if(strcmp("ACCEL_X", command) == 0)
 				MPU_UART(X_Axis);
 			else if(strcmp("ACCEL_Y", command) == 0)
 				MPU_UART(Y_Axis);
 			else if(strcmp("ACCEL_Z", command) == 0)
 				MPU_UART(Z_Axis);
+			break;
+			*/
+			else if(strcmp("ACCEL", command) == 0)
+				MPU_UART();
 			break;
 			
 		default:
@@ -158,9 +180,25 @@ void rotateMotor(uint8_t dir, uint8_t step)
 }
 
 // Sends the read acceleration value of a particular axis through UART
+/*
 void MPU_UART(uint8_t axis)
 {
 	MPU_ReadAccel(accel);
 	itoa(accel[axis], buffer, 10);
 	USART_Print(buffer);
+	USART_Print("\n");
+}
+*/
+void MPU_UART()
+{
+	MPU_ReadAccel(accel);
+	// Send X, Y, and Z acceleration
+	for(int i = 0; i < 3; i++)
+	{
+		itoa(accel[i], buffer, 10);
+		USART_Print(buffer);
+		USART_Print(" ");
+	}
+	// EOL
+	USART_Print("\n");
 }
