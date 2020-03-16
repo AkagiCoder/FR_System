@@ -24,6 +24,7 @@ SYSTEM_RUNNING = True
 # Global Variables
 #----------------
 lockStatus = "LOCKED"
+alarmStatus = "ARMED"
 lock = True
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
@@ -99,9 +100,7 @@ STX = b'\x02'           # Start of text
 ETX = b'\x03'           # End of text
 CW = "RCW"              # Rotate motor clockwise
 CCW = "RCCW"            # Rotate motor counter-clockwise
-ACCX = "ACCEL_X"        # Acceleration on X-axis
-ACCY = "ACCEL_Y"        # Acceleration on Y-axis
-ACCZ = "ACCEL_Z"        # Acceleration on Z-axis
+AC = "ACCEL"            # Acceleration on XYZ
 
 # GPIOs
 GPIO.setwarnings(False)
@@ -129,6 +128,7 @@ GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
 def mainMenu():
     global SYSTEM_RUNNING
     global lockStatus
+    global alarmStatus
     global activeKeys
     global keypadInput
     global keyFile_Lock
@@ -174,10 +174,29 @@ def mainMenu():
             # Blink red when door is unlocked
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTemp, lockStatus)
             stdscr.attroff(curses.color_pair(1))
             stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
 
+        # Alarm status
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "Security: ")
+        XTemp = stdscr.getyx()[1]
+        if alarmStatus == "ARMED":
+            stdscr.addstr(YCursor, XTemp, alarmStatus, curses.color_pair(2))
+        else:
+            # Blink red when alarm system isn't armed
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, alarmStatus)
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+
+            
         # Current number of active keys
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "Active Keys: ")
@@ -243,34 +262,40 @@ def mainMenu():
             stdscr.addstr(YCursor, XCursor, "1. LOCK/UNLOCK the door", curses.A_STANDOUT)
         else:
             stdscr.addstr(YCursor, XCursor, "1. LOCK/UNLOCK the door")
-
+            
         YCursor = YCursor + 1
         if optNum == 2:
-            stdscr.addstr(YCursor, XCursor, "2. Generate key", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "2. ARM/DISARM the security", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "2. Generate key")
-                
-        YCursor = YCursor + 1
-        if optNum == 3:
-            stdscr.addstr(YCursor, XCursor, "3. Key removal", curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "3. Key removal")
+            stdscr.addstr(YCursor, XCursor, "2. ARM/DISARM the security")
 
         YCursor = YCursor + 1
-        if optNum == 4:
-            stdscr.addstr(YCursor, XCursor, "4. Key usage history", curses.A_STANDOUT)
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "3. Generate key", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "4. Key usage history")
+            stdscr.addstr(YCursor, XCursor, "3. Generate key")
+                
+        YCursor = YCursor + 1
+        if optNum == 4:
+            stdscr.addstr(YCursor, XCursor, "4. Key removal", curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "4. Key removal")
 
         YCursor = YCursor + 1
         if optNum == 5:
-            stdscr.addstr(YCursor, XCursor, "5. Settings", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "5. Key usage history", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "5. Settings")
+            stdscr.addstr(YCursor, XCursor, "5. Key usage history")
+
+        YCursor = YCursor + 1
+        if optNum == 6:
+            stdscr.addstr(YCursor, XCursor, "6. Settings", curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "6. Settings")
 
         XCursor = XCursor - 5
         YCursor = YCursor + 3
-        if optNum == 6:
+        if optNum == 7:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
@@ -292,22 +317,24 @@ def mainMenu():
         # Key down
         elif k == 66:
             optNum = optNum + 1
-            if optNum > 6:
-                optNum = 6
+            if optNum > 7:
+                optNum = 7
         # Enter
         elif k == 10:
             # Commands
             if optNum == 1:
                 lockCont()
             elif optNum == 2:
-                keyGen()
+                securityCont()
             elif optNum == 3:
-                selectKeyRemoval()
+                keyGen()
             elif optNum == 4:
-                keyHist()
+                selectKeyRemoval()
             elif optNum == 5:
-                settings()
+                keyHist()
             elif optNum == 6:
+                settings()
+            elif optNum == 7:
                 SYSTEM_RUNNING = False
                 
     curses.curs_set(1)
@@ -461,25 +488,26 @@ def expKeyChecker():
 # Thread that monitors the MPU6050 (Accelerometer)
 def accelMonitor():
     global SYSTEM_RUNNING
-    global UART_Lock
     global accelX, accelY, accelZ
+    global AC
 
     while SYSTEM_RUNNING:
-        #UART_Send(ACCX)
-        #message = serialport.readline()
-        #accelX = message.decode("utf-8")
-        UART_Send(ACCY)
+        UART_Send(AC)
         message = serialport.readline()
-        accelY = message.decode("utf-8")
-        #UART_Send(ACCZ)
-        #message = serialport.readline()
-        #accelZ = message.decode("utf-8")
+        accel = message.decode("utf-8").split() # Parse the received message
+        count = 0
+        for value in accel:
+            if count == 0:
+                accelX = accel[0]
+            elif count == 1:
+                accelY = accel[1]
+            elif count == 2:
+                accelZ = accel[2]
+            count = count + 1
+        #accelX = accel[0]  # X-Axis
+        #accelY = accel[1]  # Y-Axis
+        #accelZ = accel[2]  # Z-Axis
         
-        #accelX = "Hello"
-        #time.sleep(1)
-        #accelX = "World"
-        #time.sleep(1)
-
 
     print("Accelerometer monitor thread has terminated")
 
@@ -593,6 +621,26 @@ def doorLock():
             lockStatus = "LOCKED"
     
     print("Door lock thread has terminated")
+
+# Alarm thread that periodically checks the values of the
+# accelerometer and detects for possible break in.
+# 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
+# 2) If the door is locked and the contact switch is opened, trigger the alarm.
+# NOTE: sensitivity is set in the 'Settings'
+def alarm():
+    global SYSTEM_RUNNING
+    global lockStatus
+    global alarmStatus
+    global accelX, accelY, accelZ
+
+    while SYSTEM_RUNNING:
+        while alarmStatus == "ARMED":
+            # If the door is lock, perform the force check
+            if lockStatus == "LOCKED":
+                time.sleep(0)
+            
+print("Security thread has terminated")
+
 #----------------
 # LAYER #2
 #----------------
@@ -606,6 +654,14 @@ def lockCont():
     else:
         lock = False
         lockStatus = "UNLOCKED"
+
+# Arms or disarms the alarm
+def securityCont():
+    global alarmStatus
+    if alarmStatus == "ARMED":
+        alarmStatus = "DISARMED"
+    else:
+        alarmStatus = "ARMED"
 
 # Removes a key once user specifies the number '1.', '2.', etc.
 def removeKey(keyNum):
@@ -743,7 +799,6 @@ def keyGen():
             stdscr.attroff(curses.color_pair(2))
         else:
             stdscr.addstr(YCursor, XCursor, "Confirm", curses.color_pair(2))
-
             
         stdscr.refresh()
         k = stdscr.getch()
@@ -1100,24 +1155,25 @@ def UART_Send(command):
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
-    global serialport
-    global UART_Lock
+    #global serialport
+    #global UART_Lock
 
     # Variables that represent the command to be sent
-    global CW
-    global CCW
-    global ACCX
-    global ACCY
-    global ACCZ
+    #global CW
+    #global CCW
+    #global ACCX
+    #global ACCY
+    #global ACCZ
 
     # Status variables of the lock
-    global lock
-    global lockStatus
+    #global lock
+    #global lockStatus
 
     global stdscr
 
     k = 0
     optNum = 1
+    
     while k !=  ord('q'):
         stdscr.clear()
         height, width = stdscr.getmaxyx()
@@ -1138,51 +1194,70 @@ def settings():
         stdscr.addstr(YCursor, XCursor, "Use LEFT/RIGHT keys to increase/decrease/select:")
         stdscr.attroff(curses.A_ITALIC)
         stdscr.attroff(curses.color_pair(5))
-        
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity: ")
 
-        
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "NOTE(Accelerometer): If the sensitivity is set TOO HIGH, then false alarms can occur (i.e. Normal knock on the door).", curses.color_pair(4))
+        YCursor = YCursor + 1
+        if optNum == 1:
+            stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, "  ")
+            XTemp = stdscr.getyx()[1]
+            XTempEnd = stdscr.getyx()[1] + 30
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTempEnd, "|")
+        else:
+            stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, "  ")
+            XTemp = stdscr.getyx()[1]
+            XTempEnd = stdscr.getyx()[1] + 30
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTempEnd, "|")
+
+
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "NOTE(Face Detection): If the sensitivity is set TOO LOW, then false positives can occur and TOO HIGH may fail to verify your identity!", curses.color_pair(4))
+        YCursor = YCursor + 1
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " ")
+            XTemp = stdscr.getyx()[1]
+            XTempEnd = stdscr.getyx()[1] + 30
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTempEnd, "|")
+        else:
+            stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " ")
+            XTemp = stdscr.getyx()[1]
+            XTempEnd = stdscr.getyx()[1] + 30
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTempEnd, "|")
+            
+        YCursor = YCursor + 3
+        XCursor = XCursor - 2
+        if optNum == 3:
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.A_BLINK)
+            stdscr.addstr(YCursor, XCursor, "Back")
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.A_BLINK)        
+        else:
+            stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
+                    
         stdscr.refresh()
         k = stdscr.getch()
 
-    
-#    while True:
-#        print("\033[2J\033[H")
-#        print("ATmega328 Settings\n")
-#        print("\t1. Rotate motor CW")
-#        print("\t2. Rotate motor CCW")
-#        print("\t3. Retrieve acceleration on X-axis")
-#        print("\t4. Retrieve acceleration on Y-axis")
-#        print("\t5. Retrieve acceleration on Z-axis")
-#        print("\nType 'exit' to exit")
-#        command = input("\nSelect an option: ")
-
-        # Rotate motor CW
-#        if (command == "1"):
-#            UART_Send(CW)
-#        # Rotate motor CCW
-#        elif (command == "2"):
-#            UART_Send(CCW)
-#        # Request acceleration of X-axis
-#        elif (command == "3"):
-#            UART_Send(ACCX)
-#            message = serialport.readline()
-#            print(message.decode("utf-8"))
-#            time.sleep(1)
-#        elif (command == "4"):
-#            UART_Send(ACCY)
-#            message = serialport.readline()
-#            print(message.decode("utf-8"))
-#            time.sleep(1)
-#        elif (command == "5"):
-#            UART_Send(ACCZ)
-#            message = serialport.readline()
-#            print(message.decode("utf-8"))
-#            time.sleep(1)
-#        elif(command == "exit"):
-#            curses.curs_set(0)
-#            curses.noecho()
-#            return
-    
-    
+        # Key up
+        if k == 65:
+            optNum = optNum - 1
+            if optNum < 1:
+                optNum = 1
+        elif k == 66:
+            optNum = optNum + 1
+            if optNum > 3:
+                optNum = 3
