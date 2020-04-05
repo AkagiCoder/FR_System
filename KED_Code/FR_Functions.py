@@ -66,7 +66,7 @@ print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -115,7 +115,7 @@ GPIO.output(13, False)
 GPIO.output(6, False)
 
 # Rows as input from the keypad
-GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
+GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
@@ -368,9 +368,10 @@ def keypad():
             keypadInput = keypadInput + "7"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(5)):
-            keypadInput = keypadInput + "*"
-            while(GPIO.input(5)):
+        elif(GPIO.input(23)):
+            if(len(keypadInput) > 0):
+                keypadInput = keypadInput[:-1]            
+            while(GPIO.input(23)):
                 pass
         GPIO.output(6, False)
         time.sleep(keyDelay)
@@ -389,9 +390,9 @@ def keypad():
             keypadInput = keypadInput + "8"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(5)):
+        elif(GPIO.input(23)):
             keypadInput = keypadInput + "0"
-            while(GPIO.input(5)):
+            while(GPIO.input(23)):
                 pass
         GPIO.output(13, False)
         time.sleep(keyDelay)
@@ -410,9 +411,9 @@ def keypad():
             keypadInput = keypadInput + "9"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(5)):
+        elif(GPIO.input(23)):
             keypadInput = keypadInput + "#"
-            while(GPIO.input(5)):
+            while(GPIO.input(23)):
                 pass
         GPIO.output(26, False)
         time.sleep(keyDelay)
