@@ -31,6 +31,8 @@ keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
+accelSen = 15              # Sensitivity of the accelerometer
+faceSen = 15               # Sensitivity of the facial detection
 
 #------------------------
 # Accelerometer Variables
@@ -66,7 +68,8 @@ print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
-model = Facenet.loadModel()
+# Uncomment 'model' to load the model
+#model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -1171,11 +1174,13 @@ def settings():
     #global lockStatus
 
     global stdscr
+    global accelSen
+    global faceSen
 
     k = 0
     optNum = 1
     
-    while k !=  ord('q'):
+    while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -1199,42 +1204,51 @@ def settings():
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "NOTE(Accelerometer): If the sensitivity is set TOO HIGH, then false alarms can occur (i.e. Normal knock on the door).", curses.color_pair(4))
         YCursor = YCursor + 1
+        
+        blockString = ""
+        for x in range(accelSen):
+            blockString += " "
+        
         if optNum == 1:
             stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, "  ")
+            stdscr.addstr(YCursor, XTemp, "  |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
         else:
             stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:")
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, "  ")
+            stdscr.addstr(YCursor, XTemp, "  |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
-
 
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "NOTE(Face Detection): If the sensitivity is set TOO LOW, then false positives can occur and TOO HIGH may fail to verify your identity!", curses.color_pair(4))
         YCursor = YCursor + 1
+        
+        blockString = ""
+        for x in range(faceSen):
+            blockString += " "
+            
         if optNum == 2:
             stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, " ")
+            stdscr.addstr(YCursor, XTemp, " |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
         else:
             stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:")
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, " ")
+            stdscr.addstr(YCursor, XTemp, " |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
             
         YCursor = YCursor + 3
@@ -1249,7 +1263,7 @@ def settings():
             stdscr.attroff(curses.A_BLINK)        
         else:
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
-                    
+            
         stdscr.refresh()
         k = stdscr.getch()
 
@@ -1258,7 +1272,30 @@ def settings():
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
+        # Key down
         elif k == 66:
             optNum = optNum + 1
             if optNum > 3:
                 optNum = 3
+                
+        # Increase/decrease sensitivity of accelerometer
+        if optNum == 1:
+            if k == 67:
+                if accelSen < 30:
+                    accelSen += 1
+            if k == 68:
+                if accelSen > 0:
+                    accelSen -= 1
+
+        # Increase/decrease sensitivity of face detection
+        if optNum == 2:
+            if k == 67:
+                if faceSen < 30:
+                    faceSen += 1
+            if k == 68:
+                if faceSen > 0:
+                    faceSen -= 1
+        
+        # Exit the settings
+        if optNum == 3 and k == 10:
+            return
