@@ -1159,19 +1159,6 @@ def UART_Send(command):
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
-    #global serialport
-    #global UART_Lock
-
-    # Variables that represent the command to be sent
-    #global CW
-    #global CCW
-    #global ACCX
-    #global ACCY
-    #global ACCZ
-
-    # Status variables of the lock
-    #global lock
-    #global lockStatus
 
     global stdscr
     global accelSen
