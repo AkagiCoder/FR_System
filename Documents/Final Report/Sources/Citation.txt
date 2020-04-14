@@ -21,3 +21,8 @@ Deep Learing Info:
 FaceNet Info:
 			https://arxiv.org/abs/1503.03832
 			https://medium.com/analytics-vidhya/introduction-to-facenet-a-unified-embedding-for-face-recognition-and-clustering-dbdac8e6f02
+			
+Market Info:
+	https://www.marketwatch.com/press-release/smart-doorbell-camera-market-2020-2024-global-trends-size-share-outlook-by-leading-manufacturers-cagr-projection-by-2024-industry-researchco-2019-12-20
+	https://www.hindawi.com/journals/js/2018/6464036/
+	
