@@ -358,7 +358,7 @@ def keypad():
 
     while SYSTEM_RUNNING:
         # Column 1
-        GPIO.output(6, True)
+        GPIO.output(26, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "1"
             while(GPIO.input(17)):
@@ -376,7 +376,7 @@ def keypad():
                 keypadInput = keypadInput[:-1]            
             while(GPIO.input(23)):
                 pass
-        GPIO.output(6, False)
+        GPIO.output(26, False)
         time.sleep(keyDelay)
 
         # Column 2
@@ -401,7 +401,7 @@ def keypad():
         time.sleep(keyDelay)
 
         # Column 3
-        GPIO.output(26, True)
+        GPIO.output(6, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "3"
             while(GPIO.input(17)):
@@ -418,7 +418,7 @@ def keypad():
             keypadInput = keypadInput + "#"
             while(GPIO.input(23)):
                 pass
-        GPIO.output(26, False)
+        GPIO.output(6, False)
         time.sleep(keyDelay)
 
         # Check if the user inputted 5 digit passcode
@@ -494,24 +494,23 @@ def accelMonitor():
     global SYSTEM_RUNNING
     global accelX, accelY, accelZ
     global AC
+    global lock
 
     while SYSTEM_RUNNING:
-        UART_Send(AC)
-        message = serialport.readline()
-        accel = message.decode("utf-8").split() # Parse the received message
-        count = 0
-        for value in accel:
-            if count == 0:
-                accelX = accel[0]
-            elif count == 1:
-                accelY = accel[1]
-            elif count == 2:
-                accelZ = accel[2]
-            count = count + 1
-        #accelX = accel[0]  # X-Axis
-        #accelY = accel[1]  # Y-Axis
-        #accelZ = accel[2]  # Z-Axis
-        
+        #time.sleep(0)
+        if lock:
+            UART_Send(AC)
+            message = serialport.readline()
+            accel = message.decode("utf-8").split() # Parse the received message
+            count = 0
+            for value in accel:
+                if count == 0:
+                    accelX = accel[0]
+                elif count == 1:
+                    accelY = accel[1]
+                elif count == 2:
+                    accelZ = accel[2]
+                count = count + 1        
 
     print("Accelerometer monitor thread has terminated")
 
@@ -615,9 +614,16 @@ def doorLock():
     while SYSTEM_RUNNING:
         time.sleep(0)
         if not lock:
-            # Unlock the door
+            # Apply a delay for UART to be available
+            time.sleep(1)
+            # Unlock the door            
             UART_Send(CCW)
-            time.sleep(5)
+            #time.sleep(5)
+
+            # Wait until the command to relock the door
+            while not lock:
+                time.sleep(0)
+                pass
             
             # Relock the door
             UART_Send(CW)
@@ -653,8 +659,11 @@ def lockCont():
     global lock
     global lockStatus
 
+    # Lock the door
     if not lock:
         lock = True
+        lockStatuc = "LOCKED"
+    # Unlock the door
     else:
         lock = False
         lockStatus = "UNLOCKED"
