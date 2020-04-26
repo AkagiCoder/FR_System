@@ -34,12 +34,15 @@ UART_Lock = Lock()         # Mutex for accessing the UART
 accelSen = 15              # Sensitivity of the accelerometer
 faceSen = 15               # Sensitivity of the facial detection
 
+# DEBUGGING
+deltaY = 0
+
 #------------------------
 # Accelerometer Variables
 #------------------------
-accelX = ""
-accelY = ""
-accelZ = ""
+accelX = "0"
+accelY = "0"
+accelZ = "0"
 
 # Delay required to give enough time for the voltage
 # to drop for each output column.
@@ -141,6 +144,8 @@ def mainMenu():
     global accelX, accelY, accelZ
     global distance
 
+    global deltaY
+
     # Curses settings
     stdscr.timeout(500)
     k = 0
@@ -224,6 +229,12 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Accel-Z: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, accelZ)
+        # DEBUGGING
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "deltaY: ")
+        XTemp = stdscr.getyx()[1]
+        stdscr.addstr(YCursor, XTemp, str(deltaY))
+
                       
         # Current keypad input
         XCursor = XCursor - 2
@@ -643,11 +654,17 @@ def alarm():
     global alarmStatus
     global accelX, accelY, accelZ
 
+    # Debugging
+    global deltaY
+    
     while SYSTEM_RUNNING:
-        while alarmStatus == "ARMED":
+        if alarmStatus == "ARMED":
+            # Take the difference of the acceleration for every 50 ms
+            oldAccelY = int(accelY)
+            time.sleep(0.05)
             # If the door is lock, perform the force check
             if lockStatus == "LOCKED":
-                time.sleep(0)
+                deltaY = int(accelY) - oldAccelY
             
 print("Security thread has terminated")
 
