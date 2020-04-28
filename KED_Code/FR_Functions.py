@@ -26,6 +26,7 @@ SYSTEM_RUNNING = True
 lockStatus = "LOCKED"
 alarmStatus = "ARMED"
 lock = True
+rSwitch = True             # Reed switch
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
@@ -112,6 +113,9 @@ AC = "ACCEL"            # Acceleration on XYZ
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
+# Reed switch
+GPIO.setup(12, GPIO.IN, pull_up_down=GPIO.PUD_UP)        # Pull-up
+
 # Columns as output to the keypad
 GPIO.setup(26, GPIO.OUT)       # C3
 GPIO.setup(13, GPIO.OUT)       # C2
@@ -143,6 +147,7 @@ def mainMenu():
     global keypadMessage
     global accelX, accelY, accelZ
     global distance
+    global rSwitch
 
     global deltaY
 
@@ -173,7 +178,23 @@ def mainMenu():
         # Shift a column to the right
         XCursor = XCursor + 2
         YCursor = YCursor + 1
+        # Door status
+        stdscr.addstr(YCursor, XCursor, "Door: ")
+        XTemp = stdscr.getyx()[1]
+        if rSwitch:
+            stdscr.addstr(YCursor, XTemp, "CLOSED", curses.color_pair(2))
+        else:
+            # Blink red when door is unlocked
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, "OPENED")
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+
         # Lock status
+        YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "Door Lock: ")
         XTemp = stdscr.getyx()[1]
         if lockStatus == "LOCKED":
@@ -194,7 +215,7 @@ def mainMenu():
         XTemp = stdscr.getyx()[1]
         if alarmStatus == "ARMED":
             stdscr.addstr(YCursor, XTemp, alarmStatus, curses.color_pair(2))
-        else:
+        elif alarmStatus == "DISARMED":
             # Blink red when alarm system isn't armed
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_BLINK)
@@ -203,7 +224,15 @@ def mainMenu():
             stdscr.attroff(curses.color_pair(1))
             stdscr.attroff(curses.A_BLINK)
             stdscr.attroff(curses.A_STANDOUT)
-
+        else:
+            # Blink because of break-in
+            stdscr.attron(curses.color_pair(4))
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, alarmStatus)
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)        
             
         # Current number of active keys
         YCursor = YCursor + 1
@@ -621,18 +650,25 @@ def doorLock():
     global lockStatus
     global CW
     global CCW
+    global rSwitch
     
     while SYSTEM_RUNNING:
-        time.sleep(0)
+        time.sleep(0)            
         if not lock:
             # Apply a delay for UART to be available
             time.sleep(1)
             # Unlock the door            
             UART_Send(CCW)
-            #time.sleep(5)
+            # If the door has not been opened for more than 5 seconds, automatically relock the door.
+            time.sleep(5)
+            if rSwitch:
+                UART_Send(CW)
+                lock = True
+                lockStatus = "LOCKED"                
+                pass
 
             # Wait until the command to relock the door
-            while not lock:
+            while not rSwitch:
                 time.sleep(0)
                 pass
             
@@ -643,16 +679,31 @@ def doorLock():
     
     print("Door lock thread has terminated")
 
+# Thread for checking the status of the reed switch
+def reedSwitch():
+    global SYSTEM_RUNNING
+    global rSwitch
+
+    while SYSTEM_RUNNING:
+        time.sleep(0)
+        # Reed switch flag
+        if(not GPIO.input(12)):
+            rSwitch = True
+        else:
+            rSwitch = False
+    print("Reed switch thread has terminated")
+    
 # Alarm thread that periodically checks the values of the
 # accelerometer and detects for possible break in.
 # 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
 # 2) If the door is locked and the contact switch is opened, trigger the alarm.
 # NOTE: sensitivity is set in the 'Settings'
 def alarm():
-    global SYSTEM_RUNNING
+    global SYSTEM_RUNNING    
     global lockStatus
     global alarmStatus
     global accelX, accelY, accelZ
+    global rSwitch
 
     # Debugging
     global deltaY
@@ -665,6 +716,8 @@ def alarm():
             # If the door is lock, perform the force check
             if lockStatus == "LOCKED":
                 deltaY = int(accelY) - oldAccelY
+            if lockStatus == "LOCKED" and not rSwitch:
+                alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
             
 print("Security thread has terminated")
 

@@ -33,7 +33,8 @@ t3 = threading.Thread(target = FR.accelMonitor, )
 #t4 = threading.Thread(target = FR.camera, )
 #t5 = threading.Thread(target = FR.FCheck, )
 t6 = threading.Thread(target = FR.doorLock, )
-t7 = threading.Thread(target = FR.alarm, )
+t7 = threading.Thread(target = FR.reedSwitch, )
+t8 = threading.Thread(target = FR.alarm, )
 
 # Initialize the thread
 t0.start()   # Main menu
@@ -43,7 +44,8 @@ t3.start()   # Accelerometer checker
 #t4.start()   # Camera
 #t5.start()   # Face checker (CNN) [Don't forget to uncomment the CNN model
 t6.start()   # Door lock
-t7.start()   # Alarm that detects force or illogical status of the contact switch/door
+t7.start()
+t8.start()   # Alarm that detects force or illogical status of the contact switch/door
 
 # Wait for the threads to terminate
 t0.join()
@@ -54,4 +56,5 @@ t3.join()
 #t5.join()
 t6.join()
 t7.join()
+t8.join()
 print("===== PROGRAM SUCCESSFULLY TERMINATED =====")
