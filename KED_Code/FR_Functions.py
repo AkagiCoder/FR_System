@@ -7,6 +7,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import curses
+import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
@@ -696,7 +697,7 @@ def reedSwitch():
 # Alarm thread that periodically checks the values of the
 # accelerometer and detects for possible break in.
 # 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
-# 2) If the door is locked and the contact switch is opened, trigger the alarm.
+# 2) If the door is locked and the reed switch is opened, trigger the alarm.
 # NOTE: sensitivity is set in the 'Settings'
 def alarm():
     global SYSTEM_RUNNING    
@@ -704,6 +705,10 @@ def alarm():
     global alarmStatus
     global accelX, accelY, accelZ
     global rSwitch
+
+    # Audio for alarm
+    wave_obj = sa.WaveObject.from_wave_file("/home/pi/Desktop/Digital Math - Hop Up.wav")
+    #play_obj = wave_obj.play()
 
     # Debugging
     global deltaY
@@ -718,6 +723,16 @@ def alarm():
                 deltaY = int(accelY) - oldAccelY
             if lockStatus == "LOCKED" and not rSwitch:
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
+                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
+                    play_obj = wave_obj.play()
+                    while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
+                        time.sleep(0)
+                        if not play_obj.is_playing():
+                            play_obj = wave_obj.play()
+                        if not SYSTEM_RUNNING:
+                            break
+                        pass
+                    play_obj.stop()
             
 print("Security thread has terminated")
 
