@@ -30,7 +30,7 @@ t0 = threading.Thread(target = FR.mainMenu,)
 t1 = threading.Thread(target = FR.keypad, )
 t2 = threading.Thread(target = FR.expKeyChecker, )
 t3 = threading.Thread(target = FR.accelMonitor, )
-#t4 = threading.Thread(target = FR.camera, )
+t4 = threading.Thread(target = FR.camera, )
 #t5 = threading.Thread(target = FR.FCheck, )
 t6 = threading.Thread(target = FR.doorLock, )
 t7 = threading.Thread(target = FR.reedSwitch, )
@@ -41,7 +41,7 @@ t0.start()   # Main menu
 t1.start()   # Keypad
 t2.start()   # Expired key checker
 t3.start()   # Accelerometer checker
-#t4.start()   # Camera
+t4.start()   # Camera
 #t5.start()   # Face checker (CNN) [Don't forget to uncomment the CNN model
 t6.start()   # Door lock
 t7.start()
@@ -52,7 +52,7 @@ t0.join()
 t1.join()
 t2.join()
 t3.join()
-#t4.join()
+t4.join()
 #t5.join()
 t6.join()
 t7.join()

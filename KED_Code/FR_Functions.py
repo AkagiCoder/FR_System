@@ -706,6 +706,7 @@ def alarm():
     global accelX, accelY, accelZ
     global rSwitch
     global accelSen
+    global frame
 
     # Audio for alarm
     wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
@@ -728,7 +729,15 @@ def alarm():
                 
             # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
+                # NEED TO DO WORK ON CREATING NAMES FOR IMAGES
+                imgName = "Hello"
+                
+                # Take a picture of the intruder
+                cv2.imwrite("/home/pi/Desktop/" + imgName + ".png", frame)
+
+                # Set that alarm status to 'break-in'
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
+                # Play the alarm sound effects
                 if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
                     play_obj = wave_obj.play()
                     while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
