@@ -705,10 +705,10 @@ def alarm():
     global alarmStatus
     global accelX, accelY, accelZ
     global rSwitch
+    global accelSen
 
     # Audio for alarm
-    wave_obj = sa.WaveObject.from_wave_file("/home/pi/Desktop/Digital Math - Hop Up.wav")
-    #play_obj = wave_obj.play()
+    wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
 
     # Debugging
     global deltaY
@@ -718,15 +718,22 @@ def alarm():
             # Take the difference of the acceleration for every 50 ms
             oldAccelY = int(accelY)
             time.sleep(0.05)
-            # If the door is lock, perform the force check
+            # If the door is locked, perform the force check
             if lockStatus == "LOCKED":
-                deltaY = int(accelY) - oldAccelY
+                # Need to apply absolute value function here
+                deltaY = abs(int(accelY) - oldAccelY)
+                # If the difference exceeds the threshold, take a picture
+                if(deltaY / 100  > accelSen):
+                    print("FORCE DETECTED!")
+                
+            # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
                 if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
                     play_obj = wave_obj.play()
                     while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
                         time.sleep(0)
+                        # Play alarm sound
                         if not play_obj.is_playing():
                             play_obj = wave_obj.play()
                         if not SYSTEM_RUNNING:
@@ -734,7 +741,7 @@ def alarm():
                         pass
                     play_obj.stop()
             
-print("Security thread has terminated")
+    print("Security thread has terminated")
 
 #----------------
 # LAYER #2
