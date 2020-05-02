@@ -7,7 +7,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import curses
-import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
@@ -27,24 +26,18 @@ SYSTEM_RUNNING = True
 lockStatus = "LOCKED"
 alarmStatus = "ARMED"
 lock = True
-rSwitch = True             # Reed switch
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
-accelSen = 15              # Sensitivity of the accelerometer
-faceSen = 15               # Sensitivity of the facial detection
-
-# DEBUGGING
-deltaY = 0
 
 #------------------------
 # Accelerometer Variables
 #------------------------
-accelX = "0"
-accelY = "0"
-accelZ = "0"
+accelX = ""
+accelY = ""
+accelZ = ""
 
 # Delay required to give enough time for the voltage
 # to drop for each output column.
@@ -73,7 +66,6 @@ print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
-# Uncomment 'model' to load the model
 #model = Facenet.loadModel()
 input_shape = (160, 160)
 
@@ -114,9 +106,6 @@ AC = "ACCEL"            # Acceleration on XYZ
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
-# Reed switch
-GPIO.setup(12, GPIO.IN, pull_up_down=GPIO.PUD_UP)        # Pull-up
-
 # Columns as output to the keypad
 GPIO.setup(26, GPIO.OUT)       # C3
 GPIO.setup(13, GPIO.OUT)       # C2
@@ -126,7 +115,7 @@ GPIO.output(13, False)
 GPIO.output(6, False)
 
 # Rows as input from the keypad
-GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
+GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
@@ -148,9 +137,6 @@ def mainMenu():
     global keypadMessage
     global accelX, accelY, accelZ
     global distance
-    global rSwitch
-
-    global deltaY
 
     # Curses settings
     stdscr.timeout(500)
@@ -179,23 +165,7 @@ def mainMenu():
         # Shift a column to the right
         XCursor = XCursor + 2
         YCursor = YCursor + 1
-        # Door status
-        stdscr.addstr(YCursor, XCursor, "Door: ")
-        XTemp = stdscr.getyx()[1]
-        if rSwitch:
-            stdscr.addstr(YCursor, XTemp, "CLOSED", curses.color_pair(2))
-        else:
-            # Blink red when door is unlocked
-            stdscr.attron(curses.color_pair(1))
-            stdscr.attron(curses.A_BLINK)
-            stdscr.attron(curses.A_STANDOUT)
-            stdscr.addstr(YCursor, XTemp, "OPENED")
-            stdscr.attroff(curses.color_pair(1))
-            stdscr.attroff(curses.A_BLINK)
-            stdscr.attroff(curses.A_STANDOUT)
-
         # Lock status
-        YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "Door Lock: ")
         XTemp = stdscr.getyx()[1]
         if lockStatus == "LOCKED":
@@ -216,7 +186,7 @@ def mainMenu():
         XTemp = stdscr.getyx()[1]
         if alarmStatus == "ARMED":
             stdscr.addstr(YCursor, XTemp, alarmStatus, curses.color_pair(2))
-        elif alarmStatus == "DISARMED":
+        else:
             # Blink red when alarm system isn't armed
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_BLINK)
@@ -225,15 +195,7 @@ def mainMenu():
             stdscr.attroff(curses.color_pair(1))
             stdscr.attroff(curses.A_BLINK)
             stdscr.attroff(curses.A_STANDOUT)
-        else:
-            # Blink because of break-in
-            stdscr.attron(curses.color_pair(4))
-            stdscr.attron(curses.A_BLINK)
-            stdscr.attron(curses.A_STANDOUT)
-            stdscr.addstr(YCursor, XTemp, alarmStatus)
-            stdscr.attroff(curses.color_pair(1))
-            stdscr.attroff(curses.A_BLINK)
-            stdscr.attroff(curses.A_STANDOUT)        
+
             
         # Current number of active keys
         YCursor = YCursor + 1
@@ -259,12 +221,6 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Accel-Z: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, accelZ)
-        # DEBUGGING
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "deltaY: ")
-        XTemp = stdscr.getyx()[1]
-        stdscr.addstr(YCursor, XTemp, str(deltaY))
-
                       
         # Current keypad input
         XCursor = XCursor - 2
@@ -283,7 +239,7 @@ def mainMenu():
         YCursor = YCursor + 2
         stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
         YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time\tKey Type", curses.A_BOLD)
         KF = open("keyList.dat", "r")   # Read only
         EOF = KF.readline()
         while EOF:  # Parse line by line
@@ -399,7 +355,7 @@ def keypad():
 
     while SYSTEM_RUNNING:
         # Column 1
-        GPIO.output(26, True)
+        GPIO.output(6, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "1"
             while(GPIO.input(17)):
@@ -412,12 +368,11 @@ def keypad():
             keypadInput = keypadInput + "7"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(23)):
-            if(len(keypadInput) > 0):
-                keypadInput = keypadInput[:-1]            
-            while(GPIO.input(23)):
+        elif(GPIO.input(5)):
+            keypadInput = keypadInput + "*"
+            while(GPIO.input(5)):
                 pass
-        GPIO.output(26, False)
+        GPIO.output(6, False)
         time.sleep(keyDelay)
 
         # Column 2
@@ -434,15 +389,15 @@ def keypad():
             keypadInput = keypadInput + "8"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(23)):
+        elif(GPIO.input(5)):
             keypadInput = keypadInput + "0"
-            while(GPIO.input(23)):
+            while(GPIO.input(5)):
                 pass
         GPIO.output(13, False)
         time.sleep(keyDelay)
 
         # Column 3
-        GPIO.output(6, True)
+        GPIO.output(26, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "3"
             while(GPIO.input(17)):
@@ -455,11 +410,11 @@ def keypad():
             keypadInput = keypadInput + "9"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(23)):
+        elif(GPIO.input(5)):
             keypadInput = keypadInput + "#"
-            while(GPIO.input(23)):
+            while(GPIO.input(5)):
                 pass
-        GPIO.output(6, False)
+        GPIO.output(26, False)
         time.sleep(keyDelay)
 
         # Check if the user inputted 5 digit passcode
@@ -535,23 +490,24 @@ def accelMonitor():
     global SYSTEM_RUNNING
     global accelX, accelY, accelZ
     global AC
-    global lock
 
     while SYSTEM_RUNNING:
-        #time.sleep(0)
-        if lock:
-            UART_Send(AC)
-            message = serialport.readline()
-            accel = message.decode("utf-8").split() # Parse the received message
-            count = 0
-            for value in accel:
-                if count == 0:
-                    accelX = accel[0]
-                elif count == 1:
-                    accelY = accel[1]
-                elif count == 2:
-                    accelZ = accel[2]
-                count = count + 1        
+        UART_Send(AC)
+        message = serialport.readline()
+        accel = message.decode("utf-8").split() # Parse the received message
+        count = 0
+        for value in accel:
+            if count == 0:
+                accelX = accel[0]
+            elif count == 1:
+                accelY = accel[1]
+            elif count == 2:
+                accelZ = accel[2]
+            count = count + 1
+        #accelX = accel[0]  # X-Axis
+        #accelY = accel[1]  # Y-Axis
+        #accelZ = accel[2]  # Z-Axis
+        
 
     print("Accelerometer monitor thread has terminated")
 
@@ -651,27 +607,13 @@ def doorLock():
     global lockStatus
     global CW
     global CCW
-    global rSwitch
     
     while SYSTEM_RUNNING:
-        time.sleep(0)            
+        time.sleep(0)
         if not lock:
-            # Apply a delay for UART to be available
-            time.sleep(1)
-            # Unlock the door            
+            # Unlock the door
             UART_Send(CCW)
-            # If the door has not been opened for more than 5 seconds, automatically relock the door.
             time.sleep(5)
-            if rSwitch:
-                UART_Send(CW)
-                lock = True
-                lockStatus = "LOCKED"                
-                pass
-
-            # Wait until the command to relock the door
-            while not rSwitch:
-                time.sleep(0)
-                pass
             
             # Relock the door
             UART_Send(CW)
@@ -680,77 +622,24 @@ def doorLock():
     
     print("Door lock thread has terminated")
 
-# Thread for checking the status of the reed switch
-def reedSwitch():
-    global SYSTEM_RUNNING
-    global rSwitch
-
-    while SYSTEM_RUNNING:
-        time.sleep(0)
-        # Reed switch flag
-        if(not GPIO.input(12)):
-            rSwitch = True
-        else:
-            rSwitch = False
-    print("Reed switch thread has terminated")
-    
 # Alarm thread that periodically checks the values of the
 # accelerometer and detects for possible break in.
 # 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
-# 2) If the door is locked and the reed switch is opened, trigger the alarm.
+# 2) If the door is locked and the contact switch is opened, trigger the alarm.
 # NOTE: sensitivity is set in the 'Settings'
 def alarm():
-    global SYSTEM_RUNNING    
+    global SYSTEM_RUNNING
     global lockStatus
     global alarmStatus
     global accelX, accelY, accelZ
-    global rSwitch
-    global accelSen
-    global frame
 
-    # Audio for alarm
-    wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
-
-    # Debugging
-    global deltaY
-    
     while SYSTEM_RUNNING:
-        if alarmStatus == "ARMED":
-            # Take the difference of the acceleration for every 50 ms
-            oldAccelY = int(accelY)
-            time.sleep(0.05)
-            # If the door is locked, perform the force check
+        while alarmStatus == "ARMED":
+            # If the door is lock, perform the force check
             if lockStatus == "LOCKED":
-                # Need to apply absolute value function here
-                deltaY = abs(int(accelY) - oldAccelY)
-                # If the difference exceeds the threshold, take a picture
-                if(deltaY / 100  > accelSen):
-                    print("FORCE DETECTED!")
-                
-            # Trigger the alarm if the door is opened when lock is still 'locked'
-            if lockStatus == "LOCKED" and not rSwitch:
-                # NEED TO DO WORK ON CREATING NAMES FOR IMAGES
-                imgName = "Hello"
-                
-                # Take a picture of the intruder
-                cv2.imwrite("/home/pi/Desktop/" + imgName + ".png", frame)
-
-                # Set that alarm status to 'break-in'
-                alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
-                # Play the alarm sound effects
-                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
-                    play_obj = wave_obj.play()
-                    while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
-                        time.sleep(0)
-                        # Play alarm sound
-                        if not play_obj.is_playing():
-                            play_obj = wave_obj.play()
-                        if not SYSTEM_RUNNING:
-                            break
-                        pass
-                    play_obj.stop()
+                time.sleep(0)
             
-    print("Security thread has terminated")
+print("Security thread has terminated")
 
 #----------------
 # LAYER #2
@@ -760,11 +649,8 @@ def lockCont():
     global lock
     global lockStatus
 
-    # Lock the door
     if not lock:
         lock = True
-        lockStatuc = "LOCKED"
-    # Unlock the door
     else:
         lock = False
         lockStatus = "UNLOCKED"
@@ -812,6 +698,8 @@ def keyGen():
 
     k = 0
     optNum = 1
+    courier = ["Home", "Amazon", "UPS", "USPS"]
+
     
     key = ""
     # Key is generated in this loop
@@ -821,6 +709,7 @@ def keyGen():
     numDays = 0
     inputTime = 0
     period = "AM"
+    courierpos = 0
     
     while True:
         stdscr.clear()
@@ -888,9 +777,19 @@ def keyGen():
             XTemp = stdscr.getyx()[1]
             stdscr.addstr(YCursor, XTemp, " " + period, curses.color_pair(2))
 
+        YCursor = YCursor + 1
+        if optNum == 5:
+            stdscr.addstr(YCursor, XCursor, "Courier:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + courier[courierpos], curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Courier:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + courier[courierpos], curses.color_pair(2))    
+
         XCursor = XCursor - 2
         YCursor = YCursor + 3
-        if optNum == 5:
+        if optNum == 6:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
@@ -903,7 +802,7 @@ def keyGen():
             stdscr.addstr(YCursor, XCursor, "Cancel", curses.color_pair(1))
             XCursor = stdscr.getyx()[1] + 3
 
-        if optNum == 6:
+        if optNum == 7:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(2))
@@ -925,8 +824,8 @@ def keyGen():
          # Key down       
         elif k == 66:
             optNum = optNum + 1
-            if optNum > 5:
-                optNum = 5
+            if optNum > 6:
+                optNum = 6
 
         # Increase/decrease numDays using arrow keys
         if optNum == 2:
@@ -956,11 +855,24 @@ def keyGen():
                     
         # Selection between "Cancel" and "Confirm"
         elif optNum == 5:
-            if k == 67:
-                optNum = 6
+            if k == ord('d'):
+                if courierpos == 3:
+                    courierpos = 3
+                else:
+                    courierpos = courierpos + 1
+            elif k == ord('a'):
+                if courierpos == 0:
+                    courierpos = 0
+                else:
+                    courierpos = courierpos - 1                
+                    
+        # Selection between "Cancel" and "Confirm"
         elif optNum == 6:
-            if k == 68:
-                optNum = 5                
+            if k == ord('d'):
+                optNum = 7
+        elif optNum == 7:
+            if k == ord('a'):
+                optNum = 6             
                     
         # Enter
         if k == 10:
@@ -989,7 +901,7 @@ def keyGen():
                          key + "\t" +                                               # Key
                          today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
                          + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
-                         + time + " " + period + "\n")
+                         + time + " " + period +  "      " + courier[courierpos] + "\n")
 
                     activeKeys = activeKeys + 1
                     KF.close()
@@ -1269,15 +1181,26 @@ def UART_Send(command):
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
+    #global serialport
+    #global UART_Lock
+
+    # Variables that represent the command to be sent
+    #global CW
+    #global CCW
+    #global ACCX
+    #global ACCY
+    #global ACCZ
+
+    # Status variables of the lock
+    #global lock
+    #global lockStatus
 
     global stdscr
-    global accelSen
-    global faceSen
 
     k = 0
     optNum = 1
     
-    while True:
+    while k !=  ord('q'):
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -1301,51 +1224,42 @@ def settings():
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "NOTE(Accelerometer): If the sensitivity is set TOO HIGH, then false alarms can occur (i.e. Normal knock on the door).", curses.color_pair(4))
         YCursor = YCursor + 1
-        
-        blockString = ""
-        for x in range(accelSen):
-            blockString += " "
-        
         if optNum == 1:
             stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, "  |")
+            stdscr.addstr(YCursor, XTemp, "  ")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
         else:
             stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:")
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, "  |")
+            stdscr.addstr(YCursor, XTemp, "  ")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
+
 
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "NOTE(Face Detection): If the sensitivity is set TOO LOW, then false positives can occur and TOO HIGH may fail to verify your identity!", curses.color_pair(4))
         YCursor = YCursor + 1
-        
-        blockString = ""
-        for x in range(faceSen):
-            blockString += " "
-            
         if optNum == 2:
             stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, " |")
+            stdscr.addstr(YCursor, XTemp, " ")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
         else:
             stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:")
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, " |")
+            stdscr.addstr(YCursor, XTemp, " ")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
             
         YCursor = YCursor + 3
@@ -1360,7 +1274,7 @@ def settings():
             stdscr.attroff(curses.A_BLINK)        
         else:
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
-            
+                    
         stdscr.refresh()
         k = stdscr.getch()
 
@@ -1369,30 +1283,7 @@ def settings():
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
-        # Key down
         elif k == 66:
             optNum = optNum + 1
             if optNum > 3:
                 optNum = 3
-                
-        # Increase/decrease sensitivity of accelerometer
-        if optNum == 1:
-            if k == 67:
-                if accelSen < 30:
-                    accelSen += 1
-            if k == 68:
-                if accelSen > 0:
-                    accelSen -= 1
-
-        # Increase/decrease sensitivity of face detection
-        if optNum == 2:
-            if k == 67:
-                if faceSen < 30:
-                    faceSen += 1
-            if k == 68:
-                if faceSen > 0:
-                    faceSen -= 1
-        
-        # Exit the settings
-        if optNum == 3 and k == 10:
-            return
