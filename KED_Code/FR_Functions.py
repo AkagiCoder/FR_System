@@ -74,7 +74,7 @@ print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -713,6 +713,8 @@ def alarm():
 
     # Debugging
     global deltaY
+
+    img_counter = 0
     
     while SYSTEM_RUNNING:
         if alarmStatus == "ARMED":
@@ -724,22 +726,29 @@ def alarm():
                 # Need to apply absolute value function here
                 deltaY = abs(int(accelY) - oldAccelY)
                 # If the difference exceeds the threshold, take a picture
-                if(deltaY / 100  > accelSen):
+                if(deltaY  > 32000 - accelSen * 1000):
                     print("FORCE DETECTED!")
+                    #print(accelSen)
+                    img_name = "FORCE-DET-FOOTAGE/img_{}.png".format(img_counter)
+                    cv2.imwrite(img_name, frame)
+                    img_counter += 1
                 
             # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
-                # NEED TO DO WORK ON CREATING NAMES FOR IMAGES
-                imgName = "Hello"
-                
-                # Take a picture of the intruder
-                cv2.imwrite("/home/pi/Desktop/" + imgName + ".png", frame)
 
                 # Set that alarm status to 'break-in'
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
                 # Play the alarm sound effects
-                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
+                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":                    
                     play_obj = wave_obj.play()
+                    
+                    # Take a quick 5 shot of the person
+                    for i in range(0,10):
+                        time.sleep(0.5)
+                        img_name = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_{}.png".format(i)
+                        cv2.imwrite(img_name, frame)
+
+                    # Continuously play the alarm until disabled
                     while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
                         time.sleep(0)
                         # Play alarm sound
