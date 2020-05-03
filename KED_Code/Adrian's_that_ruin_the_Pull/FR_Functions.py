@@ -32,18 +32,24 @@ SYSTEM_RUNNING = True
 lockStatus = "LOCKED"
 alarmStatus = "ARMED"
 lock = True
+rSwitch = True             # Reed switch
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
+accelSen = 15              # Sensitivity of the accelerometer
+faceSen = 15               # Sensitivity of the facial detection
+
+# DEBUGGING
+deltaY = 0
 
 #------------------------
 # Accelerometer Variables
 #------------------------
-accelX = ""
-accelY = ""
-accelZ = ""
+accelX = "0"
+accelY = "0"
+accelZ = "0"
 
 # Delay required to give enough time for the voltage
 # to drop for each output column.
@@ -72,6 +78,7 @@ print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
+# Uncomment 'model' to load the model
 #model = Facenet.loadModel()
 input_shape = (160, 160)
 
@@ -112,6 +119,9 @@ AC = "ACCEL"            # Acceleration on XYZ
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
+# Reed switch
+GPIO.setup(12, GPIO.IN, pull_up_down=GPIO.PUD_UP)        # Pull-up
+
 # Columns as output to the keypad
 GPIO.setup(26, GPIO.OUT)       # C3
 GPIO.setup(13, GPIO.OUT)       # C2
@@ -121,10 +131,11 @@ GPIO.output(13, False)
 GPIO.output(6, False)
 
 # Rows as input from the keypad
-GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
+GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
+
 
 #----------------
 # Layer #1
@@ -708,7 +719,7 @@ def alarm():
                 msg.attach(MIMEText(body, 'plain')) 
                   
                 # open the file to be sent  
-                filename = "tiredgirl.jpg"
+                filename = "Hello.png"
                 attachment = open("Caped_Face.png", "rb") 
                   
                 # instance of MIMEBase and named as p 
