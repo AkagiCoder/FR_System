@@ -74,7 +74,7 @@ print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-model = Facenet.loadModel()
+#model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -233,7 +233,7 @@ def mainMenu():
             stdscr.addstr(YCursor, XTemp, alarmStatus)
             stdscr.attroff(curses.color_pair(1))
             stdscr.attroff(curses.A_BLINK)
-            stdscr.attroff(curses.A_STANDOUT)        
+            stdscr.attroff(curses.A_STANDOUT)
             
         # Current number of active keys
         YCursor = YCursor + 1
@@ -333,13 +333,19 @@ def mainMenu():
 
         YCursor = YCursor + 1
         if optNum == 6:
-            stdscr.addstr(YCursor, XCursor, "6. Settings", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "6. Photo booth", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "6. Settings")
+            stdscr.addstr(YCursor, XCursor, "6. Photo booth")
+            
+        YCursor = YCursor + 1
+        if optNum == 7:
+            stdscr.addstr(YCursor, XCursor, "7. Settings", curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "7. Settings")
 
         XCursor = XCursor - 5
         YCursor = YCursor + 3
-        if optNum == 7:
+        if optNum == 8:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
@@ -361,8 +367,8 @@ def mainMenu():
         # Key down
         elif k == 66:
             optNum = optNum + 1
-            if optNum > 7:
-                optNum = 7
+            if optNum > 8:
+                optNum = 8
         # Enter
         elif k == 10:
             # Commands
@@ -377,8 +383,10 @@ def mainMenu():
             elif optNum == 5:
                 keyHist()
             elif optNum == 6:
-                settings()
+                photoBooth()
             elif optNum == 7:
+                settings()
+            elif optNum == 8:
                 SYSTEM_RUNNING = False
                 
     curses.curs_set(1)
@@ -1275,10 +1283,36 @@ def UART_Send(command):
     serialport.write(ETX)
     UART_Lock.release()
 
+# Takes a picture
+def photoBooth():
+    global stdscr
+
+    k = 0
+    optNum = 1
+
+    while True:
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        XCursor = width // 6
+        YCursor = height // 6
+
+        # Print title
+        stdscr.attron(curses.color_pair(3))
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "Photo Booth")
+        stdscr.attroff(curses.color_pair(3))
+        stdscr.attroff(curses.A_BOLD)
+
+        stdscr.refresh()
+        k = stdscr.getch()
+
+        # Exit the settings
+        if optNum == 1 and k == 10:
+            return
+        
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
-
     global stdscr
     global accelSen
     global faceSen
