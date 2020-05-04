@@ -6,7 +6,13 @@ import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+import simpleaudio as sa
 import curses
+import smtplib 
+from email.mime.multipart import MIMEMultipart 
+from email.mime.text import MIMEText 
+from email.mime.base import MIMEBase 
+from email import encoders 
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
@@ -26,18 +32,24 @@ SYSTEM_RUNNING = True
 lockStatus = "LOCKED"
 alarmStatus = "ARMED"
 lock = True
+rSwitch = True             # Reed switch
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
+accelSen = 15              # Sensitivity of the accelerometer
+faceSen = 15               # Sensitivity of the facial detection
+
+# DEBUGGING
+deltaY = 0
 
 #------------------------
 # Accelerometer Variables
 #------------------------
-accelX = ""
-accelY = ""
-accelZ = ""
+accelX = "0"
+accelY = "0"
+accelZ = "0"
 
 # Delay required to give enough time for the voltage
 # to drop for each output column.
@@ -66,6 +78,7 @@ print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
+# Uncomment 'model' to load the model
 #model = Facenet.loadModel()
 input_shape = (160, 160)
 
@@ -106,6 +119,9 @@ AC = "ACCEL"            # Acceleration on XYZ
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
+# Reed switch
+GPIO.setup(12, GPIO.IN, pull_up_down=GPIO.PUD_UP)        # Pull-up
+
 # Columns as output to the keypad
 GPIO.setup(26, GPIO.OUT)       # C3
 GPIO.setup(13, GPIO.OUT)       # C2
@@ -115,10 +131,11 @@ GPIO.output(13, False)
 GPIO.output(6, False)
 
 # Rows as input from the keypad
-GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)        # R4
+GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
+
 
 #----------------
 # Layer #1
@@ -622,24 +639,135 @@ def doorLock():
     
     print("Door lock thread has terminated")
 
+# Thread for checking the status of the reed switch
+def reedSwitch():
+    global SYSTEM_RUNNING
+    global rSwitch
+
+    while SYSTEM_RUNNING:
+        time.sleep(0)
+        # Reed switch flag
+        if(not GPIO.input(12)):
+            rSwitch = True
+        else:
+            rSwitch = False
+    print("Reed switch thread has terminated")    
+
 # Alarm thread that periodically checks the values of the
 # accelerometer and detects for possible break in.
 # 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
 # 2) If the door is locked and the contact switch is opened, trigger the alarm.
 # NOTE: sensitivity is set in the 'Settings'
 def alarm():
-    global SYSTEM_RUNNING
+    global SYSTEM_RUNNING    
     global lockStatus
     global alarmStatus
     global accelX, accelY, accelZ
+    global rSwitch
+    global accelSen
+    global frame
 
+    # Audio for alarm
+    wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
+
+    # Debugging
+    global deltaY
+    
     while SYSTEM_RUNNING:
-        while alarmStatus == "ARMED":
-            # If the door is lock, perform the force check
+        if alarmStatus == "ARMED":
+            # Take the difference of the acceleration for every 50 ms
+            oldAccelY = int(accelY)
+            time.sleep(0.05)
+            # If the door is locked, perform the force check
             if lockStatus == "LOCKED":
-                time.sleep(0)
+                # Need to apply absolute value function here
+                deltaY = abs(int(accelY) - oldAccelY)
+                # If the difference exceeds the threshold, take a picture
+                if(deltaY / 100  > accelSen):
+                    print("FORCE DETECTED!")
+                
+            # Trigger the alarm if the door is opened when lock is still 'locked'
+            if lockStatus == "LOCKED" and not rSwitch:
+                # NEED TO DO WORK ON CREATING NAMES FOR IMAGES
+                imgName = "Hello"
+                
+                # Take a picture of the intruder
+                cv2.imwrite("/home/pi/Desktop/" + imgName + ".png", frame)
+
+                # Set that alarm status to 'break-in'
+                alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
+
+                fromaddr = "ked.unlv@gmail.com"
+                toaddr = "ruiza12@unlv.nevada.edu"
+                   
+                # instance of MIMEMultipart 
+                msg = MIMEMultipart() 
+                  
+                # storing the senders email address   
+                msg['From'] = fromaddr 
+                  
+                # storing the receivers email address  
+                msg['To'] = toaddr 
+                  
+                # storing the subject  
+                msg['Subject'] = "Testing the Email"
+                  
+                # string to store the body of the mail 
+                body = "KED ALERT: BREAK IN DETECTED"
+                  
+                # attach the body with the msg instance 
+                msg.attach(MIMEText(body, 'plain')) 
+                  
+                # open the file to be sent  
+                filename = "Hello.png"
+                attachment = open("Caped_Face.png", "rb") 
+                  
+                # instance of MIMEBase and named as p 
+                p = MIMEBase('application', 'octet-stream') 
+                  
+                # To change the payload into encoded form 
+                p.set_payload((attachment).read()) 
+                  
+                # encode into base64 
+                encoders.encode_base64(p) 
+                   
+                p.add_header('Content-Disposition', "attachment; filename= %s" % filename) 
+                  
+                # attach the instance 'p' to instance 'msg' 
+                msg.attach(p) 
+                  
+                # creates SMTP session 
+                s = smtplib.SMTP('smtp.gmail.com', 587) 
+                  
+                # start TLS for security 
+                s.starttls() 
+                  
+                # Authentication 
+                s.login(fromaddr, "gcslnfollmyrvaca") 
+                  
+                # Converts the Multipart msg into a string 
+                text = msg.as_string() 
+                  
+                # sending the mail 
+                s.sendmail(fromaddr, toaddr, text) 
+                  
+                # terminating the session 
+                s.quit() 
+
+                # Play the alarm sound effects
+                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
+                    play_obj = wave_obj.play()
+                    while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
+                        time.sleep(0)
+                        # Play alarm sound
+                        if not play_obj.is_playing():
+                            play_obj = wave_obj.play()
+                        if not SYSTEM_RUNNING:
+                            break
+                        pass
+                    play_obj.stop()
             
-print("Security thread has terminated")
+    print("Security thread has terminated")
 
 #----------------
 # LAYER #2

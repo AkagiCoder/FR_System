@@ -59,7 +59,7 @@ msg['To'] = toaddr
 msg['Subject'] = "Testing the Email"
   
 # string to store the body of the mail 
-body = "I attached an anime girl pic"
+body = "KED ALERT: BREAK IN DETECTED"
   
 # attach the body with the msg instance 
 msg.attach(MIMEText(body, 'plain')) 
