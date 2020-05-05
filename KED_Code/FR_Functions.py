@@ -1,20 +1,20 @@
-#import RPi.GPIO as GPIO         # GPIO for keypad
+import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
 import time                     # Delay
 from time import sleep
-#import serial                   # UART
+import serial                   # UART
 import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import curses
-#import simpleaudio as sa
+import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
-#from DeepFace.commons import functions, distance as dst
-#from DeepFace.basemodels import OpenFace, Facenet
-#from tensorflow.keras.preprocessing import image
+from DeepFace.commons import functions, distance as dst
+from DeepFace.basemodels import OpenFace, Facenet
+from tensorflow.keras.preprocessing import image
 
 
 # SYSTEM_RUNNING is the status flag of the program
@@ -71,7 +71,6 @@ distance = 1.0
 #input_shape = (96, 96)
 
 # Facenet
-'''
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
@@ -79,7 +78,7 @@ model_name = "Facenet"
 # Uncomment 'model' to load the model
 model = Facenet.loadModel()
 input_shape = (160, 160)
-'''
+
 #-----------------
 # Curses Variables
 #-----------------
@@ -97,7 +96,6 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 
 namePath = personName
 
-'''
 # Serial communication
 serialport = serial.Serial(
 port = "/dev/serial0",
@@ -136,7 +134,6 @@ GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
-'''
 
 #----------------
 # Layer #1
@@ -372,12 +369,14 @@ def mainMenu():
         k = stdscr.getch()
 
         # Key up
-        if k == ord('w'):
+        #if k == ord('w'):
+        if k == 65:
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
         # Key down
-        elif k == ord('s'):
+        #elif k == ord('s'):
+        elif k == 66:
             optNum = optNum + 1
             if optNum > 8:
                 optNum = 8
@@ -404,7 +403,6 @@ def mainMenu():
     curses.curs_set(1)
     curses.echo()
     curses.endwin()
-    #print(namePath)
     print("Main menu thread has terminated")
     return
 
@@ -1329,12 +1327,9 @@ def photoBooth():
         stdscr.attron(curses.A_BOLD)
         stdscr.addstr(YCursor, XCursor, "Photo Booth")
         stdscr.attroff(curses.color_pair(3))
-        stdscr.attroff(curses.A_BOLD) 
-
+        stdscr.attroff(curses.A_BOLD)
         
-
         #Print Options
-        
         YCursor = YCursor + 2 
         stdscr.attron(curses.A_ITALIC)
         stdscr.attron(curses.color_pair(5))
@@ -1349,7 +1344,6 @@ def photoBooth():
             stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath, curses.A_STANDOUT)
         else:
             stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
-
 
         XCursor = XCursor - 2
         YCursor = YCursor + 3
@@ -1371,7 +1365,6 @@ def photoBooth():
         if k == 8:
             if (len(namePath) > 0):
                 namePath = namePath[:-1]
-   
         
         if optNum == 1 and k == 10:
             if len(namePath) > 0:
@@ -1392,8 +1385,6 @@ def photoBooth():
             optNum = optNum + 1
             if(optNum > 2):
                 optNum = 2
-        
-
     
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
@@ -1405,9 +1396,6 @@ def settings():
 
     k = 0
     optNum = 1
-    namePath = ""
-
-
     
     while SYSTEM_RUNNING:
         stdscr.clear()

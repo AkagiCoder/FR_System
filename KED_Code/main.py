@@ -29,6 +29,7 @@ except FileNotFoundError:
 t0 = threading.Thread(target = FR.mainMenu,)
 t1 = threading.Thread(target = FR.keypad, )
 t2 = threading.Thread(target = FR.expKeyChecker, )
+t3 = threading.Thread(target = FR.accelMonitor, )
 t4 = threading.Thread(target = FR.camera, )
 t5 = threading.Thread(target = FR.FCheck, )
 t6 = threading.Thread(target = FR.doorLock, )
