@@ -1,25 +1,27 @@
-import RPi.GPIO as GPIO         # GPIO for keypad
+#import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
 import time                     # Delay
-import serial                   # UART
+from time import sleep
+#import serial                   # UART
 import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import curses
-import simpleaudio as sa
+#import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
-from DeepFace.commons import functions, distance as dst
-from DeepFace.basemodels import OpenFace, Facenet
-from tensorflow.keras.preprocessing import image
+#from DeepFace.commons import functions, distance as dst
+#from DeepFace.basemodels import OpenFace, Facenet
+#from tensorflow.keras.preprocessing import image
 
 
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
 # False: Program ends
 SYSTEM_RUNNING = True
+ENTER_NAME = False
 
 #----------------
 # Global Variables
@@ -27,12 +29,13 @@ SYSTEM_RUNNING = True
 lockStatus = "LOCKED"
 alarmStatus = "ARMED"
 lock = True
-rSwitch = True             # Reed switch
+rSwitch = True             # Reed switchs
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
+name_Lock = Lock()
 accelSen = 15              # Sensitivity of the accelerometer
 faceSen = 15               # Sensitivity of the facial detection
 
@@ -69,6 +72,7 @@ distance = 1.0
 #input_shape = (96, 96)
 
 # Facenet
+'''
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
@@ -76,7 +80,7 @@ model_name = "Facenet"
 # Uncomment 'model' to load the model
 #model = Facenet.loadModel()
 input_shape = (160, 160)
-
+'''
 #-----------------
 # Curses Variables
 #-----------------
@@ -92,6 +96,9 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 # Initialization of RPi's hardware
 #----------------
 
+namePath = personName
+
+'''
 # Serial communication
 serialport = serial.Serial(
 port = "/dev/serial0",
@@ -130,6 +137,7 @@ GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
+'''
 
 #----------------
 # Layer #1
@@ -149,6 +157,7 @@ def mainMenu():
     global accelX, accelY, accelZ
     global distance
     global rSwitch
+    global namePath
 
     global deltaY
 
@@ -277,7 +286,12 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Current Input: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, keypadInput)
-        
+
+
+        XCursor = XCursor - 2
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "Name: " + namePath, curses.A_UNDERLINE)
+
         # Print active keys
         XCursor = XCursor - 2
         YCursor = YCursor + 2
@@ -360,12 +374,12 @@ def mainMenu():
         k = stdscr.getch()
 
         # Key up
-        if k == 65:
+        if k == ord('w'):
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
         # Key down
-        elif k == 66:
+        elif k == ord('s'):
             optNum = optNum + 1
             if optNum > 8:
                 optNum = 8
@@ -392,6 +406,7 @@ def mainMenu():
     curses.curs_set(1)
     curses.echo()
     curses.endwin()
+    #print(namePath)
     print("Main menu thread has terminated")
     return
 
@@ -935,12 +950,12 @@ def keyGen():
         k = stdscr.getch()
 
         # Key up
-        if k == 65:
+        if k == ord('w'):
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
          # Key down       
-        elif k == 66:
+        elif k == ord('s'):
             optNum = optNum + 1
             if optNum > 5:
                 optNum = 5
@@ -1026,10 +1041,14 @@ def keyGen():
 # Shows the history of key usage
 def keyHist():
     global stdscr
+    global SYSTEM_RUNNING
+    global name_Lock
+
+
 
     k = 0
     optNum = 1
-    while True:
+    while SYSTEM_RUNNING:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -1286,41 +1305,110 @@ def UART_Send(command):
 # Takes a picture
 def photoBooth():
     global stdscr
+    global SYSTEM_RUNNING
+    global name_Lock
+    global namePath
+    global ENTER_NAME
+    global frame
 
-    k = 0
+    k = 0;
     optNum = 1
+    ENTER_NAME = True
+    namePath = ""
 
-    while True:
+    while SYSTEM_RUNNING:
+        ENTER_NAME = True
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
         YCursor = height // 6
 
-        # Print title
+        #Print Title
         stdscr.attron(curses.color_pair(3))
         stdscr.attron(curses.A_BOLD)
         stdscr.addstr(YCursor, XCursor, "Photo Booth")
         stdscr.attroff(curses.color_pair(3))
-        stdscr.attroff(curses.A_BOLD)
+        stdscr.attroff(curses.A_BOLD) 
 
-        stdscr.refresh()
-        k = stdscr.getch()
-
-        # Exit the settings
-        if optNum == 1 and k == 10:
-            return
         
+
+        #Print Options
+        
+        YCursor = YCursor + 2 
+        stdscr.attron(curses.A_ITALIC)
+        stdscr.attron(curses.color_pair(5))
+        stdscr.addstr(YCursor, XCursor, "Select an option using the UP/DOWN arrows and ENTER:")
+        stdscr.attroff(curses.A_ITALIC)
+        stdscr.attroff(curses.color_pair(5))
+        stdscr.attroff(curses.color_pair(5))
+
+        XCursor = XCursor + 5   
+        YCursor = YCursor + 2
+        if optNum == 1:
+            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath, curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
+
+
+        XCursor = XCursor - 2
+        YCursor = YCursor + 3
+        if optNum == 2:
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.A_BLINK)
+            stdscr.addstr(YCursor, XCursor, "Back")
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.A_BLINK)        
+        else:
+            stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
+                
+        k = stdscr.getch()
+        if k != 8 and k!= -1:
+            namePath = namePath + chr(k)
+        #curses.flushinp()
+        if k == 8:
+            if (len(namePath) > 0):
+                namePath = namePath[:-1]
+   
+        
+        if optNum == 1 and k == 10:
+            if len(namePath) > 0:
+                namePath = namePath[:-1]
+                cv2.imwrite("Face_Database/" + namePath + ".jpg", frame)
+                personImg = "Face_Database" + namePath + ".jpg"
+                personName = namePath
+                return
+    
+        if optNum == 2 and k == 10:
+            ENTER_NAME = False
+            return
+        if k == ord('w'):
+            optNum = optNum - 1
+            if(optNum < 1):
+                optNum = 1
+        if k == ord('s'):
+            optNum = optNum + 1
+            if(optNum > 2):
+                optNum = 2
+        
+
+    
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
     global stdscr
     global accelSen
     global faceSen
+    global SYSTEM_RUNNING
 
     k = 0
     optNum = 1
+    namePath = ""
+
+
     
-    while True:
+    while SYSTEM_RUNNING:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -1439,3 +1527,4 @@ def settings():
         # Exit the settings
         if optNum == 3 and k == 10:
             return
+
