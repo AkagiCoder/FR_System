@@ -59,7 +59,6 @@ frame = None                # Frame data from camera
 personName = "Bryan"       # Valid person
 personImg = "Bryan.png"    # Person to check in the database
 distance_metric = "cosine"  # Distance type
-distSensitivity = 0.2       # Adjust the distance sensitivity
 distance = 1.0
 
 # OpenFace
@@ -74,7 +73,7 @@ print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -144,7 +143,6 @@ def mainMenu():
     global keypadInput
     global keyFile_Lock
     global stdscr
-    global keypadInput
     global keypadMessage
     global accelX, accelY, accelZ
     global distance
@@ -611,7 +609,6 @@ def FCheck():
     global faces
     global frame
     global personImg
-    global distSensitivity
     global model_name
     global distance_metric
     global model
@@ -619,6 +616,7 @@ def FCheck():
     global lock
     global lockStatus
     global distance
+    global faceSen
     
     threshold = functions.findThreshold(model_name, distance_metric)
 
@@ -643,12 +641,15 @@ def FCheck():
             distance = dst.findCosineDistance(img1_representation, img2_representation)
             
             # Checks the distance (farther means the person is not valid)
-            if distance < distSensitivity:
+            if distance < (faceSen / 100) + 0.1:
                 faceFlag = True
                 lock = False
                 lockStatus = "UNLOCKED"
             else:
                 faceFlag = False
+        # If there isn't any detected faces, then keep face flag false
+        else:
+            faceFlag = False
 
     print("FCheck thread has terminated")
 
