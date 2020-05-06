@@ -1,30 +1,40 @@
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
+from os import listdir
+import os
 import time                     # Delay
+from time import sleep
 import serial                   # UART
 import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-import simpleaudio as sa
 import curses
+import simpleaudio as sa
+from datetime import datetime   # Date and time
+from datetime import timedelta  # Perform arithmetic on dates/times
+from threading import Lock
+#email packages
 import smtplib 
 from email.mime.multipart import MIMEMultipart 
 from email.mime.text import MIMEText 
 from email.mime.base import MIMEBase 
-from email import encoders 
-from datetime import datetime   # Date and time
-from datetime import timedelta  # Perform arithmetic on dates/times
-from threading import Lock
+from email import encoders
+#socket packages
+import socket
+import pickle
+'''
+from PIL import Image
 from DeepFace.commons import functions, distance as dst
 from DeepFace.basemodels import OpenFace, Facenet
 from tensorflow.keras.preprocessing import image
-
+'''
 
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
 # False: Program ends
 SYSTEM_RUNNING = True
+ENTER_NAME = False
 
 #----------------
 # Global Variables
@@ -32,14 +42,18 @@ SYSTEM_RUNNING = True
 lockStatus = "LOCKED"
 alarmStatus = "ARMED"
 lock = True
-rSwitch = True             # Reed switch
+rSwitch = True             # Reed switchs
 activeKeys = 0             # Total number of active keys (Max = 10)
 keypadInput = ""           # Variable to store the inputs from keypad
 keypadMessage = "Keypad is ready"
 keyFile_Lock = Lock()      # Mutex for accessing the key file
 UART_Lock = Lock()         # Mutex for accessing the UART
+name_Lock = Lock()
 accelSen = 15              # Sensitivity of the accelerometer
 faceSen = 15               # Sensitivity of the facial detection
+
+HOST = '192.168.1.19'  # Standard loopback interface address (localhost)
+PORT = 4567        # Port to listen on (non-privileged ports are > 1023)
 
 # DEBUGGING
 deltaY = 0
@@ -64,7 +78,6 @@ frame = None                # Frame data from camera
 personName = "Bryan"       # Valid person
 personImg = "Bryan.png"    # Person to check in the database
 distance_metric = "cosine"  # Distance type
-distSensitivity = 0.2       # Adjust the distance sensitivity
 distance = 1.0
 
 # OpenFace
@@ -73,14 +86,16 @@ distance = 1.0
 #model = OpenFace.loadModel()
 #input_shape = (96, 96)
 
+'''
 # Facenet
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
+'''
 
 #-----------------
 # Curses Variables
@@ -97,6 +112,9 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 # Initialization of RPi's hardware
 #----------------
 
+namePath = personName
+
+'''
 # Serial communication
 serialport = serial.Serial(
 port = "/dev/serial0",
@@ -135,8 +153,7 @@ GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
-
-
+'''
 #----------------
 # Layer #1
 #----------------
@@ -150,10 +167,13 @@ def mainMenu():
     global keypadInput
     global keyFile_Lock
     global stdscr
-    global keypadInput
     global keypadMessage
     global accelX, accelY, accelZ
     global distance
+    global rSwitch
+    global namePath
+
+    global deltaY
 
     # Curses settings
     stdscr.timeout(500)
@@ -182,7 +202,23 @@ def mainMenu():
         # Shift a column to the right
         XCursor = XCursor + 2
         YCursor = YCursor + 1
+        # Door status
+        stdscr.addstr(YCursor, XCursor, "Door: ")
+        XTemp = stdscr.getyx()[1]
+        if rSwitch:
+            stdscr.addstr(YCursor, XTemp, "CLOSED", curses.color_pair(2))
+        else:
+            # Blink red when door is unlocked
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, "OPENED")
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
+
         # Lock status
+        YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "Door Lock: ")
         XTemp = stdscr.getyx()[1]
         if lockStatus == "LOCKED":
@@ -203,7 +239,7 @@ def mainMenu():
         XTemp = stdscr.getyx()[1]
         if alarmStatus == "ARMED":
             stdscr.addstr(YCursor, XTemp, alarmStatus, curses.color_pair(2))
-        else:
+        elif alarmStatus == "DISARMED":
             # Blink red when alarm system isn't armed
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_BLINK)
@@ -212,7 +248,15 @@ def mainMenu():
             stdscr.attroff(curses.color_pair(1))
             stdscr.attroff(curses.A_BLINK)
             stdscr.attroff(curses.A_STANDOUT)
-
+        else:
+            # Blink because of break-in
+            stdscr.attron(curses.color_pair(4))
+            stdscr.attron(curses.A_BLINK)
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, alarmStatus)
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_BLINK)
+            stdscr.attroff(curses.A_STANDOUT)
             
         # Current number of active keys
         YCursor = YCursor + 1
@@ -238,6 +282,12 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Accel-Z: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, accelZ)
+        # DEBUGGING
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "deltaY: ")
+        XTemp = stdscr.getyx()[1]
+        stdscr.addstr(YCursor, XTemp, str(deltaY))
+
                       
         # Current keypad input
         XCursor = XCursor - 2
@@ -250,13 +300,18 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Current Input: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, keypadInput)
-        
+
+
+        XCursor = XCursor - 2
+        YCursor = YCursor + 1
+        stdscr.addstr(YCursor, XCursor, "Name: " + namePath, curses.A_UNDERLINE)
+
         # Print active keys
         XCursor = XCursor - 2
         YCursor = YCursor + 2
         stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
         YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time\tKey Type", curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time \tType", curses.A_BOLD)
         KF = open("keyList.dat", "r")   # Read only
         EOF = KF.readline()
         while EOF:  # Parse line by line
@@ -306,13 +361,19 @@ def mainMenu():
 
         YCursor = YCursor + 1
         if optNum == 6:
-            stdscr.addstr(YCursor, XCursor, "6. Settings", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "6. Photo booth", curses.A_STANDOUT)
         else:
-            stdscr.addstr(YCursor, XCursor, "6. Settings")
+            stdscr.addstr(YCursor, XCursor, "6. Photo booth")
+            
+        YCursor = YCursor + 1
+        if optNum == 7:
+            stdscr.addstr(YCursor, XCursor, "7. Settings", curses.A_STANDOUT)
+        else:
+            stdscr.addstr(YCursor, XCursor, "7. Settings")
 
         XCursor = XCursor - 5
         YCursor = YCursor + 3
-        if optNum == 7:
+        if optNum == 8:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
@@ -325,17 +386,18 @@ def mainMenu():
             
         stdscr.refresh()
         k = stdscr.getch()
-
         # Key up
+        #if k == ord('w'):
         if k == 65:
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
         # Key down
+        #elif k == ord('s'):
         elif k == 66:
             optNum = optNum + 1
-            if optNum > 7:
-                optNum = 7
+            if optNum > 8:
+                optNum = 8
         # Enter
         elif k == 10:
             # Commands
@@ -350,8 +412,10 @@ def mainMenu():
             elif optNum == 5:
                 keyHist()
             elif optNum == 6:
-                settings()
+                photoBooth()
             elif optNum == 7:
+                settings()
+            elif optNum == 8:
                 SYSTEM_RUNNING = False
                 
     curses.curs_set(1)
@@ -372,7 +436,7 @@ def keypad():
 
     while SYSTEM_RUNNING:
         # Column 1
-        GPIO.output(6, True)
+        GPIO.output(26, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "1"
             while(GPIO.input(17)):
@@ -385,11 +449,12 @@ def keypad():
             keypadInput = keypadInput + "7"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(5)):
-            keypadInput = keypadInput + "*"
-            while(GPIO.input(5)):
+        elif(GPIO.input(23)):
+            if(len(keypadInput) > 0):
+                keypadInput = keypadInput[:-1]            
+            while(GPIO.input(23)):
                 pass
-        GPIO.output(6, False)
+        GPIO.output(26, False)
         time.sleep(keyDelay)
 
         # Column 2
@@ -406,15 +471,15 @@ def keypad():
             keypadInput = keypadInput + "8"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(5)):
+        elif(GPIO.input(23)):
             keypadInput = keypadInput + "0"
-            while(GPIO.input(5)):
+            while(GPIO.input(23)):
                 pass
         GPIO.output(13, False)
         time.sleep(keyDelay)
 
         # Column 3
-        GPIO.output(26, True)
+        GPIO.output(6, True)
         if(GPIO.input(17)):
             keypadInput = keypadInput + "3"
             while(GPIO.input(17)):
@@ -427,11 +492,11 @@ def keypad():
             keypadInput = keypadInput + "9"
             while(GPIO.input(22)):
                 pass
-        elif(GPIO.input(5)):
+        elif(GPIO.input(23)):
             keypadInput = keypadInput + "#"
-            while(GPIO.input(5)):
+            while(GPIO.input(23)):
                 pass
-        GPIO.output(26, False)
+        GPIO.output(6, False)
         time.sleep(keyDelay)
 
         # Check if the user inputted 5 digit passcode
@@ -507,24 +572,23 @@ def accelMonitor():
     global SYSTEM_RUNNING
     global accelX, accelY, accelZ
     global AC
+    global lock
 
     while SYSTEM_RUNNING:
-        UART_Send(AC)
-        message = serialport.readline()
-        accel = message.decode("utf-8").split() # Parse the received message
-        count = 0
-        for value in accel:
-            if count == 0:
-                accelX = accel[0]
-            elif count == 1:
-                accelY = accel[1]
-            elif count == 2:
-                accelZ = accel[2]
-            count = count + 1
-        #accelX = accel[0]  # X-Axis
-        #accelY = accel[1]  # Y-Axis
-        #accelZ = accel[2]  # Z-Axis
-        
+        #time.sleep(0)
+        if lock:
+            UART_Send(AC)
+            message = serialport.readline()
+            accel = message.decode("utf-8").split() # Parse the received message
+            count = 0
+            for value in accel:
+                if count == 0:
+                    accelX = accel[0]
+                elif count == 1:
+                    accelY = accel[1]
+                elif count == 2:
+                    accelZ = accel[2]
+                count = count + 1        
 
     print("Accelerometer monitor thread has terminated")
 
@@ -576,7 +640,6 @@ def FCheck():
     global faces
     global frame
     global personImg
-    global distSensitivity
     global model_name
     global distance_metric
     global model
@@ -584,6 +647,7 @@ def FCheck():
     global lock
     global lockStatus
     global distance
+    global faceSen
     
     threshold = functions.findThreshold(model_name, distance_metric)
 
@@ -608,12 +672,15 @@ def FCheck():
             distance = dst.findCosineDistance(img1_representation, img2_representation)
             
             # Checks the distance (farther means the person is not valid)
-            if distance < distSensitivity:
+            if distance < (faceSen / 100) + 0.1:
                 faceFlag = True
                 lock = False
                 lockStatus = "UNLOCKED"
             else:
                 faceFlag = False
+        # If there isn't any detected faces, then keep face flag false
+        else:
+            faceFlag = False
 
     print("FCheck thread has terminated")
 
@@ -624,13 +691,27 @@ def doorLock():
     global lockStatus
     global CW
     global CCW
+    global rSwitch
     
     while SYSTEM_RUNNING:
-        time.sleep(0)
+        time.sleep(0)            
         if not lock:
-            # Unlock the door
+            # Apply a delay for UART to be available
+            time.sleep(1)
+            # Unlock the door            
             UART_Send(CCW)
+            # If the door has not been opened for more than 5 seconds, automatically relock the door.
             time.sleep(5)
+            if rSwitch:
+                UART_Send(CW)
+                lock = True
+                lockStatus = "LOCKED"                
+                pass
+
+            # Wait until the command to relock the door
+            while not rSwitch:
+                time.sleep(0)
+                pass
             
             # Relock the door
             UART_Send(CW)
@@ -651,12 +732,12 @@ def reedSwitch():
             rSwitch = True
         else:
             rSwitch = False
-    print("Reed switch thread has terminated")    
-
+    print("Reed switch thread has terminated")
+    
 # Alarm thread that periodically checks the values of the
 # accelerometer and detects for possible break in.
 # 1) If the door is locked and the accelerometer detects a large force, trigger the alarm.
-# 2) If the door is locked and the contact switch is opened, trigger the alarm.
+# 2) If the door is locked and the reed switch is opened, trigger the alarm.
 # NOTE: sensitivity is set in the 'Settings'
 def alarm():
     global SYSTEM_RUNNING    
@@ -666,12 +747,17 @@ def alarm():
     global rSwitch
     global accelSen
     global frame
+    global HOST
+    global PORT
 
     # Audio for alarm
-    wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
+    #wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
 
     # Debugging
     global deltaY
+
+    img_counter = 0
+    socFlag = True
     
     while SYSTEM_RUNNING:
         if alarmStatus == "ARMED":
@@ -683,80 +769,110 @@ def alarm():
                 # Need to apply absolute value function here
                 deltaY = abs(int(accelY) - oldAccelY)
                 # If the difference exceeds the threshold, take a picture
-                if(deltaY / 100  > accelSen):
+                if(deltaY  > 32000 - accelSen * 1000):
                     print("FORCE DETECTED!")
+                    #print(accelSen)
+                    img_name = "FORCE-DET-FOOTAGE/img_{}.png".format(img_counter)
+                    cv2.imwrite(img_name, frame)
+                    img_counter += 1
                 
             # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
-                # NEED TO DO WORK ON CREATING NAMES FOR IMAGES
-                imgName = "Hello"
-                
-                # Take a picture of the intruder
-                cv2.imwrite("/home/pi/Desktop/" + imgName + ".png", frame)
+                if socFlag == True:
+                    soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    soc.bind((HOST, PORT))
+                    soc.listen(1)
+                        
+                    imgBreak = Image.open(r"Face_Database/Adrian.jpg") #filename can be changed
+        
+                    msg = pickle.dumps(imgBreak)
 
+                    msg = bytes("KED DETECTED BREAK-IN AT ADDRESS 1234", "utf-8") + msg  
+                        #print(msg)
+
+                    clientsocket, address = soc.accept()
+                #print(f"Connection from {address} has been established!")
+                    clientsocket.send(bytes(msg))
+                        #clientsocket.send(bytes("KED DETECTED BREAK-IN AT ADDRESS 1234", "utf-8"))
+                    clientsocket.close()
+                    socFlag = False
+                
                 # Set that alarm status to 'break-in'
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
-
-                fromaddr = "ked.unlv@gmail.com"
-                toaddr = "ruiza12@unlv.nevada.edu"
-                   
-                # instance of MIMEMultipart 
-                msg = MIMEMultipart() 
-                  
-                # storing the senders email address   
-                msg['From'] = fromaddr 
-                  
-                # storing the receivers email address  
-                msg['To'] = toaddr 
-                  
-                # storing the subject  
-                msg['Subject'] = "Testing the Email"
-                  
-                # string to store the body of the mail 
-                body = "KED ALERT: BREAK IN DETECTED"
-                  
-                # attach the body with the msg instance 
-                msg.attach(MIMEText(body, 'plain')) 
-                  
-                # open the file to be sent  
-                filename = "Hello.png"
-                attachment = open("Caped_Face.png", "rb") 
-                  
-                # instance of MIMEBase and named as p 
-                p = MIMEBase('application', 'octet-stream') 
-                  
-                # To change the payload into encoded form 
-                p.set_payload((attachment).read()) 
-                  
-                # encode into base64 
-                encoders.encode_base64(p) 
-                   
-                p.add_header('Content-Disposition', "attachment; filename= %s" % filename) 
-                  
-                # attach the instance 'p' to instance 'msg' 
-                msg.attach(p) 
-                  
-                # creates SMTP session 
-                s = smtplib.SMTP('smtp.gmail.com', 587) 
-                  
-                # start TLS for security 
-                s.starttls() 
-                  
-                # Authentication 
-                s.login(fromaddr, "gcslnfollmyrvaca") 
-                  
-                # Converts the Multipart msg into a string 
-                text = msg.as_string() 
-                  
-                # sending the mail 
-                s.sendmail(fromaddr, toaddr, text) 
-                  
-                # terminating the session 
-                s.quit() 
-
                 # Play the alarm sound effects
-                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
-                    play_obj = wave_obj.play()
+                
+                if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":                    
+                    #play_obj = wave_obj.play()
+                    
+                    # Take a quick 5 shot of the person
+                    
+                    for i in range(0,10):
+                        time.sleep(0.5)
+                        img_name = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_{}.png".format(i)
+                        cv2.imwrite(img_name, frame)
+                        
+                    fromaddr = "ked.unlv@gmail.com"
+                    toaddr = "ruiza12@unlv.nevada.edu"
+   
+                    # instance of MIMEMultipart 
+                    msg = MIMEMultipart() 
+  
+                    # storing the senders email address   
+                    msg['From'] = fromaddr 
+  
+                    # storing the receivers email address  
+                    msg['To'] = toaddr 
+  
+                    # storing the subject  
+                    msg['Subject'] = "Testing the Email"
+  
+                    # string to store the body of the mail 
+                    body = "KED ALERT: BREAK IN DETECTED"
+  
+                    # attach the body with the msg instance 
+                    msg.attach(MIMEText(body, 'plain')) 
+  
+                    # open the file to be sent  
+                    #filename = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_2.png"
+                    attachment = open("Face_Database/Adrian.jpg", "rb") #file name can be changed here 
+  
+                    # instance of MIMEBase and named as p 
+                    p = MIMEBase('application', 'octet-stream') 
+  
+                    # To change the payload into encoded form 
+                    p.set_payload((attachment).read()) 
+  
+                    # encode into base64 
+                    encoders.encode_base64(p) 
+   
+                    p.add_header('Content-Disposition', "attachment; filename= %s" % filename) 
+  
+                    # attach the instance 'p' to instance 'msg' 
+                    msg.attach(p) 
+  
+                    # creates SMTP session 
+                    s = smtplib.SMTP('smtp.gmail.com', 587) 
+  
+                    # start TLS for security 
+                    s.starttls() 
+  
+                    # Authentication 
+                    s.login(fromaddr, "gcslnfollmyrvaca") 
+  
+                    # Converts the Multipart msg into a string 
+                    text = msg.as_string() 
+  
+                    # sending the mail 
+                    s.sendmail(fromaddr, toaddr, text) 
+  
+                    # terminating the session 
+                    s.quit()
+                    
+                    imgBreak = Image.open(r"Face_Database/Adrian.jpg") #filename can be changed
+                    imgBreak.show()
+                
+                    
+                    # Continuously play the alarm until disabled
                     while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
                         time.sleep(0)
                         # Play alarm sound
@@ -766,6 +882,7 @@ def alarm():
                             break
                         pass
                     play_obj.stop()
+                    
             
     print("Security thread has terminated")
 
@@ -777,8 +894,11 @@ def lockCont():
     global lock
     global lockStatus
 
+    # Lock the door
     if not lock:
         lock = True
+        lockStatuc = "LOCKED"
+    # Unlock the door
     else:
         lock = False
         lockStatus = "UNLOCKED"
@@ -823,6 +943,8 @@ def keyGen():
     global activeKeys
     global keyFile_Lock
     global stdscr
+    global HOST
+    global PORT
 
     k = 0
     optNum = 1
@@ -983,12 +1105,12 @@ def keyGen():
                     
         # Selection between "Cancel" and "Confirm"
         elif optNum == 5:
-            if k == ord('d'):
+            if k == 67:
                 if courierpos == 3:
                     courierpos = 3
                 else:
                     courierpos = courierpos + 1
-            elif k == ord('a'):
+            elif k == 68:
                 if courierpos == 0:
                     courierpos = 0
                 else:
@@ -996,10 +1118,10 @@ def keyGen():
                     
         # Selection between "Cancel" and "Confirm"
         elif optNum == 6:
-            if k == ord('d'):
+            if k == 67:
                 optNum = 7
         elif optNum == 7:
-            if k == ord('a'):
+            if k == 68:
                 optNum = 6             
                     
         # Enter
@@ -1009,9 +1131,9 @@ def keyGen():
                 # Key is generated in this loop
                 for i in range(0, 5):
                     key += str(random.randrange(0, 9, 1))
-            elif optNum == 5:
-                return
             elif optNum == 6:
+                return
+            elif optNum == 7:
                 if activeKeys < 10:
                     # Format the time string
                     time = ""
@@ -1030,7 +1152,21 @@ def keyGen():
                          today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
                          + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
                          + time + " " + period +  "      " + courier[courierpos] + "\n")
+                    
+                    if courierpos != 0:
+                        
+                        msg = key + "\t" + today.strftime("%m/%d/%y %I:%M %p") + "\t" + expiration.strftime("%m/%d/%y ") + time + " " + period +  "      " + courier[courierpos] 
+                        msg = bytes(msg, "utf-8")
+                    
+                        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        s.bind((HOST, PORT))
+                        s.listen(1)
+                    
+                        clientsocket, address = s.accept()                   
+                        clientsocket.send(bytes(msg))
+                        clientsocket.close()
 
+                    
                     activeKeys = activeKeys + 1
                     KF.close()
                     keyFile_Lock.release()   # Releaes lock to the key file
@@ -1044,15 +1180,19 @@ def keyGen():
                     stdscr.attroff(curses.color_pair(1))
                     stdscr.refresh()
                     curses.napms(5000)
-                    return  
+                    return
 
 # Shows the history of key usage
 def keyHist():
     global stdscr
+    global SYSTEM_RUNNING
+    global name_Lock
+
+
 
     k = 0
     optNum = 1
-    while True:
+    while SYSTEM_RUNNING:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -1176,7 +1316,7 @@ def selectKeyRemoval():
 
         XCursor = XCursor + 2
         YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
+        stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", )
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
         KF = open("keyList.dat", "r")   # Read only
@@ -1306,29 +1446,173 @@ def UART_Send(command):
     serialport.write(ETX)
     UART_Lock.release()
 
+# Takes a picture
+def photoBooth():
+    global stdscr
+    global SYSTEM_RUNNING
+    global name_Lock
+    global namePath
+    global ENTER_NAME
+    global frame
+    global personName
+
+    k = 0;
+    optNum = 1
+    facePos = 0
+    deletePos = 0
+    ENTER_NAME = True
+    tempName = personName
+    namePath = ""
+    nameHolder = ""
+    deleteHolder = ""
+
+    while SYSTEM_RUNNING:
+        ENTER_NAME = True
+        stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        XCursor = width // 6
+        YCursor = height // 6
+
+        #Print Title
+        stdscr.attron(curses.color_pair(3))
+        stdscr.attron(curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "Photo Booth")
+        stdscr.attroff(curses.color_pair(3))
+        stdscr.attroff(curses.A_BOLD)
+        
+        #Print Options
+        YCursor = YCursor + 2 
+        stdscr.attron(curses.A_ITALIC)
+        stdscr.attron(curses.color_pair(5))
+        stdscr.addstr(YCursor, XCursor, "Select an option using the UP/DOWN arrows and ENTER:")
+        stdscr.attroff(curses.A_ITALIC)
+        stdscr.attroff(curses.color_pair(5))
+        stdscr.attroff(curses.color_pair(5))
+
+        XCursor = XCursor + 5   
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
+        
+        #Select active User
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Active Users", curses.A_UNDERLINE)
+        faceArray = os.listdir("Face_Database/")
+        nameHolder = faceArray[facePos]
+        nameHolder = nameHolder[:-4]
+        
+        deleteHolder = faceArray[deletePos]
+        deleteHolder = deleteHolder[:-4]
+        for x in listdir("Face_Database/"):
+            YCursor = YCursor + 1
+            stdscr.addstr(YCursor, XCursor, x[:-4])
+            
+        YCursor = YCursor + 1
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "Select User: ", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder , curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Select User: ")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder, curses.color_pair(2)) 
+        
+        YCursor = YCursor + 1
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "Delete User: ", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder , curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Delete User: ")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder, curses.color_pair(2))         
+        
+        XCursor = XCursor - 2
+        YCursor = YCursor + 3
+        if optNum == 4:
+            stdscr.attron(curses.color_pair(1))
+            stdscr.attron(curses.A_STANDOUT)
+            stdscr.attron(curses.A_BLINK)
+            stdscr.addstr(YCursor, XCursor, "Back")
+            stdscr.attroff(curses.color_pair(1))
+            stdscr.attroff(curses.A_STANDOUT)
+            stdscr.attroff(curses.A_BLINK)        
+        else:
+            stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
+                
+        k = stdscr.getch()
+        if (k!= 8) and (k!= -1): #and (k!= 65) and (k!= 66) and (k!= 67) and (k!= 68):
+            namePath = namePath + chr(k)
+        #curses.flushinp()
+        if k == 127:
+            name
+            return
+            if (len(namePath) > 0):
+                namePath = namePath[:-1]
+        elif k == 65:
+            optNum = optNum - 1
+            if(optNum < 1):
+                optNum = 1
+        elif k == 66:
+            optNum = optNum + 1
+            if(optNum > 4):
+                optNum = 4
+        
+        if optNum == 1 and k == 10:
+            if len(namePath) > 0:
+                namePath = namePath[:-1]
+                #cv2.imwrite("Face_Database/" + namePath + ".png", frame)
+                personImg = "Face_Database/" + namePath + ".png"
+                personName = namePath
+                return
+        elif optNum == 2:
+            if k == 67:
+                if facePos == len(faceArray) - 1:
+                    facePos = len(faceArray) - 1
+                else:
+                    facePos = facePos + 1
+            elif k == 10:
+                personImg = "Face_Database/" + namePath + ".png"
+                personName = nameHolder
+                tempName = nameHolder
+                
+            elif k == 68:
+                if facePos == 0:
+                    facePos = 0
+                else:
+                    facePos = facePos - 1
+        elif optNum == 3:
+            if k == 67:
+                if deletePos == len(faceArray) - 1:
+                    deletePos = len(faceArray) - 1
+                else:
+                    deletePos = deletePos + 1
+            elif k == 68:
+                if deletePos == 0:
+                    deletePos = 0
+                else:
+                    deletePos = deletePos - 1
+            elif k == 10:
+                if len(faceArray) != 1:
+                    if(deleteHolder != personName):
+                        os.remove("Face_Database/" + deleteHolder + ".png")
+                        
+                
+        elif optNum == 4 and k == 10:
+            #ENTER_NAME = False
+            namePath = tempName
+            return
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
-    #global serialport
-    #global UART_Lock
-
-    # Variables that represent the command to be sent
-    #global CW
-    #global CCW
-    #global ACCX
-    #global ACCY
-    #global ACCZ
-
-    # Status variables of the lock
-    #global lock
-    #global lockStatus
-
     global stdscr
+    global accelSen
+    global faceSen
+    global SYSTEM_RUNNING
 
     k = 0
     optNum = 1
     
-    while k !=  ord('q'):
+    while SYSTEM_RUNNING:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
         XCursor = width // 6
@@ -1352,42 +1636,51 @@ def settings():
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "NOTE(Accelerometer): If the sensitivity is set TOO HIGH, then false alarms can occur (i.e. Normal knock on the door).", curses.color_pair(4))
         YCursor = YCursor + 1
+        
+        blockString = ""
+        for x in range(accelSen):
+            blockString += " "
+        
         if optNum == 1:
             stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, "  ")
+            stdscr.addstr(YCursor, XTemp, "  |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
         else:
             stdscr.addstr(YCursor, XCursor, "Accelerometer Sensitivity:")
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, "  ")
+            stdscr.addstr(YCursor, XTemp, "  |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
-
 
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "NOTE(Face Detection): If the sensitivity is set TOO LOW, then false positives can occur and TOO HIGH may fail to verify your identity!", curses.color_pair(4))
         YCursor = YCursor + 1
+        
+        blockString = ""
+        for x in range(faceSen):
+            blockString += " "
+            
         if optNum == 2:
             stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, " ")
+            stdscr.addstr(YCursor, XTemp, " |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
         else:
             stdscr.addstr(YCursor, XCursor, "Face Detection Sensitivity:")
             XTemp = stdscr.getyx()[1]
-            stdscr.addstr(YCursor, XTemp, " ")
+            stdscr.addstr(YCursor, XTemp, " |")
             XTemp = stdscr.getyx()[1]
             XTempEnd = stdscr.getyx()[1] + 30
-            stdscr.addstr(YCursor, XTemp, "                  ", curses.color_pair(2) | curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XTemp, blockString, curses.color_pair(2) | curses.A_STANDOUT)
             stdscr.addstr(YCursor, XTempEnd, "|")
             
         YCursor = YCursor + 3
@@ -1402,7 +1695,7 @@ def settings():
             stdscr.attroff(curses.A_BLINK)        
         else:
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
-                    
+            
         stdscr.refresh()
         k = stdscr.getch()
 
@@ -1411,7 +1704,31 @@ def settings():
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
+        # Key down
         elif k == 66:
             optNum = optNum + 1
             if optNum > 3:
                 optNum = 3
+                
+        # Increase/decrease sensitivity of accelerometer
+        if optNum == 1:
+            if k == 67:
+                if accelSen < 30:
+                    accelSen += 1
+            if k == 68:
+                if accelSen > 0:
+                    accelSen -= 1
+
+        # Increase/decrease sensitivity of face detection
+        if optNum == 2:
+            if k == 67:
+                if faceSen < 30:
+                    faceSen += 1
+            if k == 68:
+                if faceSen > 0:
+                    faceSen -= 1
+        
+        # Exit the settings
+        if optNum == 3 and k == 10:
+            return
+

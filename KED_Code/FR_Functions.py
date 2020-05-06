@@ -1460,11 +1460,17 @@ def photoBooth():
     global namePath
     global ENTER_NAME
     global frame
+    global personName
 
     k = 0;
     optNum = 1
+    facePos = 0
+    deletePos = 0
     ENTER_NAME = True
+    tempName = personName
     namePath = ""
+    nameHolder = ""
+    deleteHolder = ""
 
     while SYSTEM_RUNNING:
         ENTER_NAME = True
@@ -1491,14 +1497,44 @@ def photoBooth():
 
         XCursor = XCursor + 5   
         YCursor = YCursor + 2
-        if optNum == 1:
-            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath, curses.A_STANDOUT)
+        stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
+        
+        #Select active User
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Active Users", curses.A_UNDERLINE)
+        faceArray = os.listdir("Face_Database/")
+        nameHolder = faceArray[facePos]
+        nameHolder = nameHolder[:-4]
+        
+        deleteHolder = faceArray[deletePos]
+        deleteHolder = deleteHolder[:-4]
+        for x in listdir("Face_Database/"):
+            YCursor = YCursor + 1
+            stdscr.addstr(YCursor, XCursor, x[:-4])
+            
+        YCursor = YCursor + 1
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "Select User: ", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder , curses.color_pair(2))
         else:
-            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
-
+            stdscr.addstr(YCursor, XCursor, "Select User: ")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder, curses.color_pair(2)) 
+        
+        YCursor = YCursor + 1
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "Delete User: ", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder , curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Delete User: ")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder, curses.color_pair(2))         
+        
         XCursor = XCursor - 2
         YCursor = YCursor + 3
-        if optNum == 2:
+        if optNum == 4:
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.A_BLINK)
@@ -1510,33 +1546,67 @@ def photoBooth():
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
                 
         k = stdscr.getch()
-        if k != 8 and k!= -1:
+        if (k!= 8) and (k!= -1): #and (k!= 65) and (k!= 66) and (k!= 67) and (k!= 68):
             namePath = namePath + chr(k)
         #curses.flushinp()
-        if k == 8:
+        if k == 127:
+            name
+            return
             if (len(namePath) > 0):
                 namePath = namePath[:-1]
+        elif k == 65:
+            optNum = optNum - 1
+            if(optNum < 1):
+                optNum = 1
+        elif k == 66:
+            optNum = optNum + 1
+            if(optNum > 4):
+                optNum = 4
         
         if optNum == 1 and k == 10:
             if len(namePath) > 0:
                 namePath = namePath[:-1]
-                cv2.imwrite("Face_Database/" + namePath + ".jpg", frame)
-                personImg = "Face_Database" + namePath + ".jpg"
+                #cv2.imwrite("Face_Database/" + namePath + ".png", frame)
+                personImg = "Face_Database/" + namePath + ".png"
                 personName = namePath
                 return
-    
-        if optNum == 2 and k == 10:
-            ENTER_NAME = False
+        elif optNum == 2:
+            if k == 67:
+                if facePos == len(faceArray) - 1:
+                    facePos = len(faceArray) - 1
+                else:
+                    facePos = facePos + 1
+            elif k == 10:
+                personImg = "Face_Database/" + namePath + ".png"
+                personName = nameHolder
+                tempName = nameHolder
+                
+            elif k == 68:
+                if facePos == 0:
+                    facePos = 0
+                else:
+                    facePos = facePos - 1
+        elif optNum == 3:
+            if k == 67:
+                if deletePos == len(faceArray) - 1:
+                    deletePos = len(faceArray) - 1
+                else:
+                    deletePos = deletePos + 1
+            elif k == 68:
+                if deletePos == 0:
+                    deletePos = 0
+                else:
+                    deletePos = deletePos - 1
+            elif k == 10:
+                if len(faceArray) != 1:
+                    if(deleteHolder != personName):
+                        os.remove("Face_Database/" + deleteHolder + ".png")
+                        
+                
+        elif optNum == 4 and k == 10:
+            #ENTER_NAME = False
+            namePath = tempName
             return
-        if k == ord('w'):
-            optNum = optNum - 1
-            if(optNum < 1):
-                optNum = 1
-        if k == ord('s'):
-            optNum = optNum + 1
-            if(optNum > 2):
-                optNum = 2
-    
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
