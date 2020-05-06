@@ -1,14 +1,16 @@
 import RPi.GPIO as GPIO         # GPIO for keypad
 import random                   # Key generator
+from os import listdir
+import os
 import time                     # Delay
 from time import sleep
-import serial                   # UART
-import cv2                      # Camera, haar classifier, cropping
+#import serial                   # UART
+#import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import curses
-import simpleaudio as sa
+#import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
@@ -21,11 +23,12 @@ from email import encoders
 #socket packages
 import socket
 import pickle
+'''
 from PIL import Image
 from DeepFace.commons import functions, distance as dst
 from DeepFace.basemodels import OpenFace, Facenet
 from tensorflow.keras.preprocessing import image
-
+'''
 
 # SYSTEM_RUNNING is the status flag of the program
 # True:  Program continuously runs
@@ -83,7 +86,7 @@ distance = 1.0
 #model = OpenFace.loadModel()
 #input_shape = (96, 96)
 
-
+'''
 # Facenet
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
@@ -92,7 +95,7 @@ model_name = "Facenet"
 # Uncomment 'model' to load the model
 model = Facenet.loadModel()
 input_shape = (160, 160)
-
+'''
 
 #-----------------
 # Curses Variables
@@ -111,7 +114,7 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 
 namePath = personName
 
-
+'''
 # Serial communication
 serialport = serial.Serial(
 port = "/dev/serial0",
@@ -150,7 +153,7 @@ GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R4
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R3
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R2
 GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)       # R1
-
+'''
 #----------------
 # Layer #1
 #----------------
@@ -383,7 +386,6 @@ def mainMenu():
             
         stdscr.refresh()
         k = stdscr.getch()
-
         # Key up
         #if k == ord('w'):
         if k == 65:
@@ -1314,7 +1316,7 @@ def selectKeyRemoval():
 
         XCursor = XCursor + 2
         YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
+        stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", )
         YCursor = YCursor + 1
         stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
         KF = open("keyList.dat", "r")   # Read only
@@ -1452,11 +1454,17 @@ def photoBooth():
     global namePath
     global ENTER_NAME
     global frame
+    global personName
 
     k = 0;
     optNum = 1
+    facePos = 0
+    deletePos = 0
     ENTER_NAME = True
+    tempName = personName
     namePath = ""
+    nameHolder = ""
+    deleteHolder = ""
 
     while SYSTEM_RUNNING:
         ENTER_NAME = True
@@ -1483,14 +1491,44 @@ def photoBooth():
 
         XCursor = XCursor + 5   
         YCursor = YCursor + 2
-        if optNum == 1:
-            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath, curses.A_STANDOUT)
+        stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
+        
+        #Select active User
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Active Users", curses.A_UNDERLINE)
+        faceArray = os.listdir("Face_Database/")
+        nameHolder = faceArray[facePos]
+        nameHolder = nameHolder[:-4]
+        
+        deleteHolder = faceArray[deletePos]
+        deleteHolder = deleteHolder[:-4]
+        for x in listdir("Face_Database/"):
+            YCursor = YCursor + 1
+            stdscr.addstr(YCursor, XCursor, x[:-4])
+            
+        YCursor = YCursor + 1
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "Select User: ", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder , curses.color_pair(2))
         else:
-            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
-
+            stdscr.addstr(YCursor, XCursor, "Select User: ")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder, curses.color_pair(2)) 
+        
+        YCursor = YCursor + 1
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "Delete User: ", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder , curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Delete User: ")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder, curses.color_pair(2))         
+        
         XCursor = XCursor - 2
         YCursor = YCursor + 3
-        if optNum == 2:
+        if optNum == 4:
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.A_BLINK)
@@ -1502,33 +1540,67 @@ def photoBooth():
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
                 
         k = stdscr.getch()
-        if k != 8 and k!= -1:
+        if (k!= 8) and (k!= -1): #and (k!= 65) and (k!= 66) and (k!= 67) and (k!= 68):
             namePath = namePath + chr(k)
         #curses.flushinp()
-        if k == 8:
+        if k == 127:
+            name
+            return
             if (len(namePath) > 0):
                 namePath = namePath[:-1]
+        elif k == 65:
+            optNum = optNum - 1
+            if(optNum < 1):
+                optNum = 1
+        elif k == 66:
+            optNum = optNum + 1
+            if(optNum > 4):
+                optNum = 4
         
         if optNum == 1 and k == 10:
             if len(namePath) > 0:
                 namePath = namePath[:-1]
-                cv2.imwrite("Face_Database/" + namePath + ".jpg", frame)
-                personImg = "Face_Database" + namePath + ".jpg"
+                #cv2.imwrite("Face_Database/" + namePath + ".png", frame)
+                personImg = "Face_Database/" + namePath + ".png"
                 personName = namePath
                 return
-    
-        if optNum == 2 and k == 10:
-            ENTER_NAME = False
+        elif optNum == 2:
+            if k == 67:
+                if facePos == len(faceArray) - 1:
+                    facePos = len(faceArray) - 1
+                else:
+                    facePos = facePos + 1
+            elif k == 10:
+                personImg = "Face_Database/" + namePath + ".png"
+                personName = nameHolder
+                tempName = nameHolder
+                
+            elif k == 68:
+                if facePos == 0:
+                    facePos = 0
+                else:
+                    facePos = facePos - 1
+        elif optNum == 3:
+            if k == 67:
+                if deletePos == len(faceArray) - 1:
+                    deletePos = len(faceArray) - 1
+                else:
+                    deletePos = deletePos + 1
+            elif k == 68:
+                if deletePos == 0:
+                    deletePos = 0
+                else:
+                    deletePos = deletePos - 1
+            elif k == 10:
+                if len(faceArray) != 1:
+                    if(deleteHolder != personName):
+                        os.remove("Face_Database/" + deleteHolder + ".png")
+                        
+                
+        elif optNum == 4 and k == 10:
+            #ENTER_NAME = False
+            namePath = tempName
             return
-        if k == ord('w'):
-            optNum = optNum - 1
-            if(optNum < 1):
-                optNum = 1
-        if k == ord('s'):
-            optNum = optNum + 1
-            if(optNum > 2):
-                optNum = 2
-    
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
