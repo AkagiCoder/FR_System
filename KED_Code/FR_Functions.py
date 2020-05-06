@@ -4,6 +4,8 @@ import time                     # Delay
 from time import sleep
 import serial                   # UART
 import cv2                      # Camera, haar classifier, cropping
+import os
+from os import listdir
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
