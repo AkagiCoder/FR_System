@@ -4,13 +4,13 @@ from os import listdir
 import os
 import time                     # Delay
 from time import sleep
-#import serial                   # UART
-#import cv2                      # Camera, haar classifier, cropping
+import serial                   # UART
+import cv2                      # Camera, haar classifier, cropping
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import curses
-#import simpleaudio as sa
+import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock

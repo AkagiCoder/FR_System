@@ -4,6 +4,8 @@ import time                     # Delay
 from time import sleep
 import serial                   # UART
 import cv2                      # Camera, haar classifier, cropping
+import os
+from os import listdir
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
@@ -50,7 +52,7 @@ accelSen = 15              # Sensitivity of the accelerometer
 faceSen = 15               # Sensitivity of the facial detection
 
 HOST = '192.168.1.19'  # Standard loopback interface address (localhost)
-PORT = 4567        # Port to listen on (non-privileged ports are > 1023)
+PORT = 4567            # Port to listen on (non-privileged ports are > 1023)
 
 # DEBUGGING
 deltaY = 0
@@ -83,16 +85,14 @@ distance = 1.0
 #model = OpenFace.loadModel()
 #input_shape = (96, 96)
 
-
 # Facenet
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-model = Facenet.loadModel()
+#model = Facenet.loadModel()
 input_shape = (160, 160)
-
 
 #-----------------
 # Curses Variables
@@ -108,9 +108,7 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 #----------------
 # Initialization of RPi's hardware
 #----------------
-
 namePath = personName
-
 
 # Serial communication
 serialport = serial.Serial(
@@ -284,7 +282,6 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "deltaY: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, str(deltaY))
-
                       
         # Current keypad input
         XCursor = XCursor - 2
@@ -297,7 +294,6 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Current Input: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, keypadInput)
-
 
         XCursor = XCursor - 2
         YCursor = YCursor + 1
@@ -385,13 +381,11 @@ def mainMenu():
         k = stdscr.getch()
 
         # Key up
-        #if k == ord('w'):
         if k == 65:
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
         # Key down
-        #elif k == ord('s'):
         elif k == 66:
             optNum = optNum + 1
             if optNum > 8:
@@ -776,6 +770,11 @@ def alarm():
                 
             # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
+                '''
+                Socket connection is made. Picture is sent. Change  
+                the file name for a different image. 
+                '''
+
                 if socFlag == True:
                     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     soc.bind((HOST, PORT))
@@ -808,7 +807,11 @@ def alarm():
                         time.sleep(0.5)
                         img_name = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_{}.png".format(i)
                         cv2.imwrite(img_name, frame)
-                        
+                      
+                    """
+                    Email stuff. Somewhat inconstent. If muiltple emails are sent
+                    at once, It lags up. 
+                    """    
                     fromaddr = "ked.unlv@gmail.com"
                     toaddr = "ruiza12@unlv.nevada.edu"
    
@@ -1151,6 +1154,11 @@ def keyGen():
                          + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
                          + time + " " + period +  "      " + courier[courierpos] + "\n")
                     
+                    '''
+                    If type of key is not a home type, then a socket is opened up.
+                    This is where the the client.py code is fired up. The client 
+                    gets the the Key. 
+                    '''
                     if courierpos != 0:
                         
                         msg = key + "\t" + today.strftime("%m/%d/%y %I:%M %p") + "\t" + expiration.strftime("%m/%d/%y ") + time + " " + period +  "      " + courier[courierpos] 
@@ -1452,11 +1460,17 @@ def photoBooth():
     global namePath
     global ENTER_NAME
     global frame
+    global personName
 
     k = 0;
     optNum = 1
+    facePos = 0
+    deletePos = 0
     ENTER_NAME = True
+    tempName = personName
     namePath = ""
+    nameHolder = ""
+    deleteHolder = ""
 
     while SYSTEM_RUNNING:
         ENTER_NAME = True
@@ -1483,14 +1497,53 @@ def photoBooth():
 
         XCursor = XCursor + 5   
         YCursor = YCursor + 2
-        if optNum == 1:
-            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath, curses.A_STANDOUT)
-        else:
-            stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
 
+        # Name field
+        if optNum == 1:
+            stdscr.addstr(YCursor, XCursor, "Enter your Name:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + namePath)
+        else:
+            stdscr.addstr(YCursor, XCursor, "Enter your Name:" + namePath)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + namePath)
+            
+        #Select active User
+        YCursor = YCursor + 2
+        stdscr.addstr(YCursor, XCursor, "Active Users", curses.A_UNDERLINE)
+        faceArray = os.listdir("Face_Database/")
+        nameHolder = faceArray[facePos]
+        nameHolder = nameHolder[:-4]
+        
+        deleteHolder = faceArray[deletePos]
+        deleteHolder = deleteHolder[:-4]
+        for x in listdir("Face_Database/"):
+            YCursor = YCursor + 1
+            stdscr.addstr(YCursor, XCursor, x[:-4])
+            
+        YCursor = YCursor + 1
+        if optNum == 2:
+            stdscr.addstr(YCursor, XCursor, "Select User:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder , curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Select User:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + nameHolder, curses.color_pair(2)) 
+        
+        YCursor = YCursor + 1
+        if optNum == 3:
+            stdscr.addstr(YCursor, XCursor, "Delete User:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder , curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Delete User:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + deleteHolder, curses.color_pair(2))         
+        
         XCursor = XCursor - 2
         YCursor = YCursor + 3
-        if optNum == 2:
+        if optNum == 4:
             stdscr.attron(curses.color_pair(1))
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.A_BLINK)
@@ -1502,33 +1555,74 @@ def photoBooth():
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
                 
         k = stdscr.getch()
-        if k != 8 and k!= -1:
-            namePath = namePath + chr(k)
+        #if (k != 8) and (k != -1): #and (k!= 65) and (k!= 66) and (k!= 67) and (k!= 68):
+        #    namePath = namePath + chr(k)
+            
         #curses.flushinp()
-        if k == 8:
+        if k == 127:
+            name
+            return
             if (len(namePath) > 0):
                 namePath = namePath[:-1]
-        
-        if optNum == 1 and k == 10:
-            if len(namePath) > 0:
-                namePath = namePath[:-1]
-                cv2.imwrite("Face_Database/" + namePath + ".jpg", frame)
-                personImg = "Face_Database" + namePath + ".jpg"
-                personName = namePath
-                return
-    
-        if optNum == 2 and k == 10:
-            ENTER_NAME = False
-            return
-        if k == ord('w'):
+        elif k == 65:
             optNum = optNum - 1
             if(optNum < 1):
                 optNum = 1
-        if k == ord('s'):
+        elif k == 66:
             optNum = optNum + 1
-            if(optNum > 2):
-                optNum = 2
-    
+            if(optNum > 4):
+                optNum = 4
+        
+        if optNum == 1:
+            # Take the picture and exit
+            if len(namePath) > 0 and k == 10:
+                namePath = namePath[:-1]
+                #cv2.imwrite("Face_Database/" + namePath + ".png", frame)
+                personImg = "Face_Database/" + namePath + ".png"
+                personName = namePath
+                return
+            # Modify name
+            if k != -1 and k != 65 and k != 66:
+                namePath = namePath + chr(k)
+                
+        elif optNum == 2:
+            if k == 67:
+                if facePos == len(faceArray) - 1:
+                    facePos = len(faceArray) - 1
+                else:
+                    facePos = facePos + 1
+            elif k == 10:
+                personImg = "Face_Database/" + namePath + ".png"
+                personName = nameHolder
+                tempName = nameHolder
+                
+            elif k == 68:
+                if facePos == 0:
+                    facePos = 0
+                else:
+                    facePos = facePos - 1
+        elif optNum == 3:
+            if k == 67:
+                if deletePos == len(faceArray) - 1:
+                    deletePos = len(faceArray) - 1
+                else:
+                    deletePos = deletePos + 1
+            elif k == 68:
+                if deletePos == 0:
+                    deletePos = 0
+                else:
+                    deletePos = deletePos - 1
+            elif k == 10:
+                if len(faceArray) != 1:
+                    if(deleteHolder != personName):
+                        os.remove("Face_Database/" + deleteHolder + ".png")
+                        
+                
+        elif optNum == 4 and k == 10:
+            #ENTER_NAME = False
+            namePath = tempName
+            return
+        
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
