@@ -50,7 +50,7 @@ accelSen = 15              # Sensitivity of the accelerometer
 faceSen = 15               # Sensitivity of the facial detection
 
 HOST = '192.168.1.19'  # Standard loopback interface address (localhost)
-PORT = 4567        # Port to listen on (non-privileged ports are > 1023)
+PORT = 4567            # Port to listen on (non-privileged ports are > 1023)
 
 # DEBUGGING
 deltaY = 0
@@ -108,9 +108,7 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 #----------------
 # Initialization of RPi's hardware
 #----------------
-
 namePath = personName
-
 
 # Serial communication
 serialport = serial.Serial(
@@ -284,7 +282,6 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "deltaY: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, str(deltaY))
-
                       
         # Current keypad input
         XCursor = XCursor - 2
@@ -297,7 +294,6 @@ def mainMenu():
         stdscr.addstr(YCursor, XCursor, "Current Input: ")
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, keypadInput)
-
 
         XCursor = XCursor - 2
         YCursor = YCursor + 1
@@ -385,13 +381,11 @@ def mainMenu():
         k = stdscr.getch()
 
         # Key up
-        #if k == ord('w'):
         if k == 65:
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
         # Key down
-        #elif k == ord('s'):
         elif k == 66:
             optNum = optNum + 1
             if optNum > 8:
