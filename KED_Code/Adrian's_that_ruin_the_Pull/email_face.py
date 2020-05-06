@@ -66,7 +66,7 @@ msg.attach(MIMEText(body, 'plain'))
   
 # open the file to be sent  
 filename = "tiredgirl.jpg"
-attachment = open("Caped_Face.png", "rb") 
+attachment = open("Face_Database/Adrian.jpg", "rb") 
   
 # instance of MIMEBase and named as p 
 p = MIMEBase('application', 'octet-stream') 

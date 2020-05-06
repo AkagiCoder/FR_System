@@ -12,6 +12,16 @@ import simpleaudio as sa
 from datetime import datetime   # Date and time
 from datetime import timedelta  # Perform arithmetic on dates/times
 from threading import Lock
+#email packages
+import smtplib 
+from email.mime.multipart import MIMEMultipart 
+from email.mime.text import MIMEText 
+from email.mime.base import MIMEBase 
+from email import encoders
+#socket packages
+import socket
+import pickle
+from PIL import Image
 from DeepFace.commons import functions, distance as dst
 from DeepFace.basemodels import OpenFace, Facenet
 from tensorflow.keras.preprocessing import image
@@ -38,6 +48,9 @@ UART_Lock = Lock()         # Mutex for accessing the UART
 name_Lock = Lock()
 accelSen = 15              # Sensitivity of the accelerometer
 faceSen = 15               # Sensitivity of the facial detection
+
+HOST = '192.168.1.19'  # Standard loopback interface address (localhost)
+PORT = 4567        # Port to listen on (non-privileged ports are > 1023)
 
 # DEBUGGING
 deltaY = 0
@@ -70,6 +83,7 @@ distance = 1.0
 #model = OpenFace.loadModel()
 #input_shape = (96, 96)
 
+
 # Facenet
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
@@ -78,6 +92,7 @@ model_name = "Facenet"
 # Uncomment 'model' to load the model
 model = Facenet.loadModel()
 input_shape = (160, 160)
+
 
 #-----------------
 # Curses Variables
@@ -95,6 +110,7 @@ curses.init_pair(5, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
 #----------------
 
 namePath = personName
+
 
 # Serial communication
 serialport = serial.Serial(
@@ -292,7 +308,7 @@ def mainMenu():
         YCursor = YCursor + 2
         stdscr.addstr(YCursor, XCursor, "List of Active Key(s)", curses.A_UNDERLINE)
         YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time", curses.A_BOLD)
+        stdscr.addstr(YCursor, XCursor, "No.\tKey\tCreation Date & Time\tExpiration Date & Time \tType", curses.A_BOLD)
         KF = open("keyList.dat", "r")   # Read only
         EOF = KF.readline()
         while EOF:  # Parse line by line
@@ -729,14 +745,17 @@ def alarm():
     global rSwitch
     global accelSen
     global frame
+    global HOST
+    global PORT
 
     # Audio for alarm
-    wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
+    #wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
 
     # Debugging
     global deltaY
 
     img_counter = 0
+    socFlag = True
     
     while SYSTEM_RUNNING:
         if alarmStatus == "ARMED":
@@ -757,19 +776,100 @@ def alarm():
                 
             # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
+                if socFlag == True:
+                    soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    soc.bind((HOST, PORT))
+                    soc.listen(1)
+                        
+                    imgBreak = Image.open(r"Face_Database/Adrian.jpg") #filename can be changed
+        
+                    msg = pickle.dumps(imgBreak)
 
+                    msg = bytes("KED DETECTED BREAK-IN AT ADDRESS 1234", "utf-8") + msg  
+                        #print(msg)
+
+                    clientsocket, address = soc.accept()
+                #print(f"Connection from {address} has been established!")
+                    clientsocket.send(bytes(msg))
+                        #clientsocket.send(bytes("KED DETECTED BREAK-IN AT ADDRESS 1234", "utf-8"))
+                    clientsocket.close()
+                    socFlag = False
+                
                 # Set that alarm status to 'break-in'
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
                 # Play the alarm sound effects
+                
                 if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":                    
-                    play_obj = wave_obj.play()
+                    #play_obj = wave_obj.play()
                     
                     # Take a quick 5 shot of the person
+                    
                     for i in range(0,10):
                         time.sleep(0.5)
                         img_name = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_{}.png".format(i)
                         cv2.imwrite(img_name, frame)
-
+                        
+                    fromaddr = "ked.unlv@gmail.com"
+                    toaddr = "ruiza12@unlv.nevada.edu"
+   
+                    # instance of MIMEMultipart 
+                    msg = MIMEMultipart() 
+  
+                    # storing the senders email address   
+                    msg['From'] = fromaddr 
+  
+                    # storing the receivers email address  
+                    msg['To'] = toaddr 
+  
+                    # storing the subject  
+                    msg['Subject'] = "Testing the Email"
+  
+                    # string to store the body of the mail 
+                    body = "KED ALERT: BREAK IN DETECTED"
+  
+                    # attach the body with the msg instance 
+                    msg.attach(MIMEText(body, 'plain')) 
+  
+                    # open the file to be sent  
+                    #filename = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_2.png"
+                    attachment = open("Face_Database/Adrian.jpg", "rb") #file name can be changed here 
+  
+                    # instance of MIMEBase and named as p 
+                    p = MIMEBase('application', 'octet-stream') 
+  
+                    # To change the payload into encoded form 
+                    p.set_payload((attachment).read()) 
+  
+                    # encode into base64 
+                    encoders.encode_base64(p) 
+   
+                    p.add_header('Content-Disposition', "attachment; filename= %s" % filename) 
+  
+                    # attach the instance 'p' to instance 'msg' 
+                    msg.attach(p) 
+  
+                    # creates SMTP session 
+                    s = smtplib.SMTP('smtp.gmail.com', 587) 
+  
+                    # start TLS for security 
+                    s.starttls() 
+  
+                    # Authentication 
+                    s.login(fromaddr, "gcslnfollmyrvaca") 
+  
+                    # Converts the Multipart msg into a string 
+                    text = msg.as_string() 
+  
+                    # sending the mail 
+                    s.sendmail(fromaddr, toaddr, text) 
+  
+                    # terminating the session 
+                    s.quit()
+                    
+                    imgBreak = Image.open(r"Face_Database/Adrian.jpg") #filename can be changed
+                    imgBreak.show()
+                
+                    
                     # Continuously play the alarm until disabled
                     while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
                         time.sleep(0)
@@ -780,6 +880,7 @@ def alarm():
                             break
                         pass
                     play_obj.stop()
+                    
             
     print("Security thread has terminated")
 
@@ -840,9 +941,13 @@ def keyGen():
     global activeKeys
     global keyFile_Lock
     global stdscr
+    global HOST
+    global PORT
 
     k = 0
     optNum = 1
+    courier = ["Home", "Amazon", "UPS", "USPS"]
+
     
     key = ""
     # Key is generated in this loop
@@ -852,6 +957,7 @@ def keyGen():
     numDays = 0
     inputTime = 0
     period = "AM"
+    courierpos = 0
     
     while True:
         stdscr.clear()
@@ -919,9 +1025,19 @@ def keyGen():
             XTemp = stdscr.getyx()[1]
             stdscr.addstr(YCursor, XTemp, " " + period, curses.color_pair(2))
 
+        YCursor = YCursor + 1
+        if optNum == 5:
+            stdscr.addstr(YCursor, XCursor, "Courier:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + courier[courierpos], curses.color_pair(2))
+        else:
+            stdscr.addstr(YCursor, XCursor, "Courier:")
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + courier[courierpos], curses.color_pair(2))    
+
         XCursor = XCursor - 2
         YCursor = YCursor + 3
-        if optNum == 5:
+        if optNum == 6:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(1))
@@ -934,7 +1050,7 @@ def keyGen():
             stdscr.addstr(YCursor, XCursor, "Cancel", curses.color_pair(1))
             XCursor = stdscr.getyx()[1] + 3
 
-        if optNum == 6:
+        if optNum == 7:
             stdscr.attron(curses.A_BLINK)
             stdscr.attron(curses.A_STANDOUT)
             stdscr.attron(curses.color_pair(2))
@@ -949,15 +1065,15 @@ def keyGen():
         k = stdscr.getch()
 
         # Key up
-        if k == ord('w'):
+        if k == 65:
             optNum = optNum - 1
             if optNum < 1:
                 optNum = 1
          # Key down       
-        elif k == ord('s'):
+        elif k == 66:
             optNum = optNum + 1
-            if optNum > 5:
-                optNum = 5
+            if optNum > 6:
+                optNum = 6
 
         # Increase/decrease numDays using arrow keys
         if optNum == 2:
@@ -988,10 +1104,23 @@ def keyGen():
         # Selection between "Cancel" and "Confirm"
         elif optNum == 5:
             if k == 67:
-                optNum = 6
+                if courierpos == 3:
+                    courierpos = 3
+                else:
+                    courierpos = courierpos + 1
+            elif k == 68:
+                if courierpos == 0:
+                    courierpos = 0
+                else:
+                    courierpos = courierpos - 1                
+                    
+        # Selection between "Cancel" and "Confirm"
         elif optNum == 6:
+            if k == 67:
+                optNum = 7
+        elif optNum == 7:
             if k == 68:
-                optNum = 5                
+                optNum = 6             
                     
         # Enter
         if k == 10:
@@ -1000,9 +1129,9 @@ def keyGen():
                 # Key is generated in this loop
                 for i in range(0, 5):
                     key += str(random.randrange(0, 9, 1))
-            elif optNum == 5:
-                return
             elif optNum == 6:
+                return
+            elif optNum == 7:
                 if activeKeys < 10:
                     # Format the time string
                     time = ""
@@ -1020,8 +1149,22 @@ def keyGen():
                          key + "\t" +                                               # Key
                          today.strftime("%m/%d/%y %I:%M %p") + "\t"                 # Creation date & time
                          + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
-                         + time + " " + period + "\n")
+                         + time + " " + period +  "      " + courier[courierpos] + "\n")
+                    
+                    if courierpos != 0:
+                        
+                        msg = key + "\t" + today.strftime("%m/%d/%y %I:%M %p") + "\t" + expiration.strftime("%m/%d/%y ") + time + " " + period +  "      " + courier[courierpos] 
+                        msg = bytes(msg, "utf-8")
+                    
+                        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        s.bind((HOST, PORT))
+                        s.listen(1)
+                    
+                        clientsocket, address = s.accept()                   
+                        clientsocket.send(bytes(msg))
+                        clientsocket.close()
 
+                    
                     activeKeys = activeKeys + 1
                     KF.close()
                     keyFile_Lock.release()   # Releaes lock to the key file
@@ -1035,7 +1178,7 @@ def keyGen():
                     stdscr.attroff(curses.color_pair(1))
                     stdscr.refresh()
                     curses.napms(5000)
-                    return  
+                    return
 
 # Shows the history of key usage
 def keyHist():
