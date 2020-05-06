@@ -85,16 +85,14 @@ distance = 1.0
 #model = OpenFace.loadModel()
 #input_shape = (96, 96)
 
-
 # Facenet
 print("Using Facenet model backend and", distance_metric,"distance.")
 print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-model = Facenet.loadModel()
+#model = Facenet.loadModel()
 input_shape = (160, 160)
-
 
 #-----------------
 # Curses Variables
@@ -1499,8 +1497,17 @@ def photoBooth():
 
         XCursor = XCursor + 5   
         YCursor = YCursor + 2
-        stdscr.addstr(YCursor, XCursor, "Enter your Name: " + namePath)
-        
+
+        # Name field
+        if optNum == 1:
+            stdscr.addstr(YCursor, XCursor, "Enter your Name:", curses.A_STANDOUT)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + namePath)
+        else:
+            stdscr.addstr(YCursor, XCursor, "Enter your Name:" + namePath)
+            XTemp = stdscr.getyx()[1]
+            stdscr.addstr(YCursor, XTemp, " " + namePath)
+            
         #Select active User
         YCursor = YCursor + 2
         stdscr.addstr(YCursor, XCursor, "Active Users", curses.A_UNDERLINE)
@@ -1516,21 +1523,21 @@ def photoBooth():
             
         YCursor = YCursor + 1
         if optNum == 2:
-            stdscr.addstr(YCursor, XCursor, "Select User: ", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "Select User:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
             stdscr.addstr(YCursor, XTemp, " " + nameHolder , curses.color_pair(2))
         else:
-            stdscr.addstr(YCursor, XCursor, "Select User: ")
+            stdscr.addstr(YCursor, XCursor, "Select User:")
             XTemp = stdscr.getyx()[1]
             stdscr.addstr(YCursor, XTemp, " " + nameHolder, curses.color_pair(2)) 
         
         YCursor = YCursor + 1
         if optNum == 3:
-            stdscr.addstr(YCursor, XCursor, "Delete User: ", curses.A_STANDOUT)
+            stdscr.addstr(YCursor, XCursor, "Delete User:", curses.A_STANDOUT)
             XTemp = stdscr.getyx()[1]
             stdscr.addstr(YCursor, XTemp, " " + deleteHolder , curses.color_pair(2))
         else:
-            stdscr.addstr(YCursor, XCursor, "Delete User: ")
+            stdscr.addstr(YCursor, XCursor, "Delete User:")
             XTemp = stdscr.getyx()[1]
             stdscr.addstr(YCursor, XTemp, " " + deleteHolder, curses.color_pair(2))         
         
@@ -1548,8 +1555,9 @@ def photoBooth():
             stdscr.addstr(YCursor, XCursor, "Back", curses.color_pair(1))
                 
         k = stdscr.getch()
-        if (k!= 8) and (k!= -1): #and (k!= 65) and (k!= 66) and (k!= 67) and (k!= 68):
-            namePath = namePath + chr(k)
+        #if (k != 8) and (k != -1): #and (k!= 65) and (k!= 66) and (k!= 67) and (k!= 68):
+        #    namePath = namePath + chr(k)
+            
         #curses.flushinp()
         if k == 127:
             name
@@ -1565,13 +1573,18 @@ def photoBooth():
             if(optNum > 4):
                 optNum = 4
         
-        if optNum == 1 and k == 10:
-            if len(namePath) > 0:
+        if optNum == 1:
+            # Take the picture and exit
+            if len(namePath) > 0 and k == 10:
                 namePath = namePath[:-1]
                 #cv2.imwrite("Face_Database/" + namePath + ".png", frame)
                 personImg = "Face_Database/" + namePath + ".png"
                 personName = namePath
                 return
+            # Modify name
+            if k != -1 and k != 65 and k != 66:
+                namePath = namePath + chr(k)
+                
         elif optNum == 2:
             if k == 67:
                 if facePos == len(faceArray) - 1:
@@ -1609,6 +1622,7 @@ def photoBooth():
             #ENTER_NAME = False
             namePath = tempName
             return
+        
 # Settings for miscellaneous parameters
 # The commands are listed near the top of this code
 def settings():
