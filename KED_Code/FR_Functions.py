@@ -776,6 +776,11 @@ def alarm():
                 
             # Trigger the alarm if the door is opened when lock is still 'locked'
             if lockStatus == "LOCKED" and not rSwitch:
+                '''
+                Socket connection is made. Picture is sent. Change  
+                the file name for a different image. 
+                '''
+
                 if socFlag == True:
                     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     soc.bind((HOST, PORT))
@@ -808,7 +813,11 @@ def alarm():
                         time.sleep(0.5)
                         img_name = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_{}.png".format(i)
                         cv2.imwrite(img_name, frame)
-                        
+                      
+                    """
+                    Email stuff. Somewhat inconstent. If muiltple emails are sent
+                    at once, It lags up. 
+                    """    
                     fromaddr = "ked.unlv@gmail.com"
                     toaddr = "ruiza12@unlv.nevada.edu"
    
@@ -1151,6 +1160,11 @@ def keyGen():
                          + expiration.strftime("%m/%d/%y ")                         # Expiration date & time
                          + time + " " + period +  "      " + courier[courierpos] + "\n")
                     
+                    '''
+                    If type of key is not a home type, then a socket is opened up.
+                    This is where the the client.py code is fired up. The client 
+                    gets the the Key. 
+                    '''
                     if courierpos != 0:
                         
                         msg = key + "\t" + today.strftime("%m/%d/%y %I:%M %p") + "\t" + expiration.strftime("%m/%d/%y ") + time + " " + period +  "      " + courier[courierpos] 
