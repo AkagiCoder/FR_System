@@ -74,8 +74,12 @@ keyDelay = 0.001
 faceFlag = False            # Flag to print the person's name when verified
 faces = []                  # Face data
 frame = None                # Frame data from camera
-personName = "Bryan"       # Valid person
-personImg = "Bryan.png"    # Person to check in the database
+
+#personName = "Bryan"       # Valid person
+#personImg = "Bryan.png"    # Person to check in the database
+personName = "Adrian"
+personImg = "Adrian.png"
+
 distance_metric = "cosine"  # Distance type
 distance = 1.0
 
@@ -295,9 +299,9 @@ def mainMenu():
         XTemp = stdscr.getyx()[1]
         stdscr.addstr(YCursor, XTemp, keypadInput)
 
-        XCursor = XCursor - 2
-        YCursor = YCursor + 1
-        stdscr.addstr(YCursor, XCursor, "Name: " + namePath, curses.A_UNDERLINE)
+        #XCursor = XCursor - 2
+        #YCursor = YCursor + 1
+        #stdscr.addstr(YCursor, XCursor, "Name: " + namePath, curses.A_UNDERLINE)
 
         # Print active keys
         XCursor = XCursor - 2
