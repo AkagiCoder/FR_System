@@ -91,7 +91,7 @@ print("Firing up Tensorflow: Setup will take at least 30 seconds...")
 print("Note: Facial recognition will not work until the setup is completed!")
 model_name = "Facenet"
 # Uncomment 'model' to load the model
-#model = Facenet.loadModel()
+model = Facenet.loadModel()
 input_shape = (160, 160)
 
 #-----------------
@@ -743,7 +743,7 @@ def alarm():
     global PORT
 
     # Audio for alarm
-    #wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
+    wave_obj = sa.WaveObject.from_wave_file("AlarmSound.wav")
 
     # Debugging
     global deltaY
@@ -773,8 +773,7 @@ def alarm():
                 '''
                 Socket connection is made. Picture is sent. Change  
                 the file name for a different image. 
-                '''
-
+               
                 if socFlag == True:
                     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     soc.bind((HOST, PORT))
@@ -793,13 +792,13 @@ def alarm():
                         #clientsocket.send(bytes("KED DETECTED BREAK-IN AT ADDRESS 1234", "utf-8"))
                     clientsocket.close()
                     socFlag = False
-                
+                '''
                 # Set that alarm status to 'break-in'
                 alarmStatus = "@@@ BREAK-IN IN PROGRESS @@@"
                 # Play the alarm sound effects
                 
                 if alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":                    
-                    #play_obj = wave_obj.play()
+                    play_obj = wave_obj.play()
                     
                     # Take a quick 5 shot of the person
                     
@@ -834,8 +833,8 @@ def alarm():
                     msg.attach(MIMEText(body, 'plain')) 
   
                     # open the file to be sent  
-                    #filename = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_2.png"
-                    attachment = open("Face_Database/Adrian.jpg", "rb") #file name can be changed here 
+                    filename = "BREAK-IN-FOOTAGE/BREAK-IN-PICTURE_2.png"
+                    attachment = open(filename, "rb") #file name can be changed here 
   
                     # instance of MIMEBase and named as p 
                     p = MIMEBase('application', 'octet-stream') 
@@ -867,11 +866,7 @@ def alarm():
                     s.sendmail(fromaddr, toaddr, text) 
   
                     # terminating the session 
-                    s.quit()
-                    
-                    imgBreak = Image.open(r"Face_Database/Adrian.jpg") #filename can be changed
-                    imgBreak.show()
-                
+                    s.quit()                                       
                     
                     # Continuously play the alarm until disabled
                     while alarmStatus == "@@@ BREAK-IN IN PROGRESS @@@":
